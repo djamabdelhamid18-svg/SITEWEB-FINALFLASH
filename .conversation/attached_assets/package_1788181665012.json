@@ -1,0 +1,16 @@
+{
+  "name": "finalflash",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "build": "tailwindcss -i tailwind-input.css -o tailwind.css --minify",
+    "watch": "tailwindcss -i tailwind-input.css -o tailwind.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

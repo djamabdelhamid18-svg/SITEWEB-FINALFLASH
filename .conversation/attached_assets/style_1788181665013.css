@@ -1,0 +1,251 @@
+/* ==========================================================================
+   Finalflash — Custom Styles
+   هوية بصرية: أسود صريح + بنفسجي البراند كلون توقيع وحيد + خشونة/نسيج خفيف
+   بدون: كرات إضاءة ضبابية، نص متدرج متحرك، توهج نيون، زجاجية مبالغ فيها
+   ========================================================================== */
+
+:root {
+    --brand-dark: #060608;
+    --brand-card: #121116;
+    --brand-card-hover: #19181f;
+    --brand-border: #262530;
+    --brand-purple: #9d4edd;
+    --brand-purple-dark: #6d28b8;
+    --brand-purple-light: #c77dff;
+    --brand-fire: #ff5400;
+}
+
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background-color: var(--brand-dark);
+    color: #f3f4f6;
+    scroll-behavior: smooth;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--brand-dark);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--brand-border);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-purple-dark);
+}
+
+/* نسيج خشن خفيف بدل الكرات الضبابية */
+.grain-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.hero-highlight {
+    color: var(--brand-purple-light);
+}
+
+.marquee-wrapper {
+    overflow: hidden;
+    white-space: nowrap;
+    background: #0c0b10;
+    border-top: 1px solid var(--brand-border);
+    border-bottom: 1px solid var(--brand-border);
+    display: flex;
+    user-select: none;
+    max-width: 100vw;
+}
+
+.marquee-content {
+    display: flex;
+    animation: marqueeScroll 22s linear infinite;
+    gap: 1.5rem;
+    padding: 0.5rem 0;
+    will-change: transform;
+}
+
+@keyframes marqueeScroll {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+}
+
+.product-card {
+    background: var(--brand-card);
+    border: 1px solid var(--brand-border);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .product-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--brand-purple);
+    }
+}
+
+.card-img-zoom {
+    transition: transform 0.4s ease;
+}
+
+.product-card:hover .card-img-zoom {
+    transform: scale(1.04);
+}
+
+.btn-purple {
+    background: var(--brand-purple-dark);
+    color: white;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    border: 1px solid var(--brand-purple);
+}
+.btn-purple:hover {
+    background: var(--brand-purple);
+}
+.btn-purple:active {
+    transform: scale(0.97);
+}
+
+.btn-bundle {
+    background: var(--brand-fire);
+    color: white;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.btn-bundle:hover {
+    background: #e04d00;
+}
+.btn-bundle:active {
+    transform: scale(0.97);
+}
+
+.btn-whatsapp {
+    background: #128c7e;
+    color: white;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.btn-whatsapp:hover {
+    background: #0e6b60;
+}
+
+.btn-instagram {
+    background: #b3245c;
+    color: white;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+.btn-instagram:hover {
+    background: #8f1c4a;
+}
+
+.cart-bounce-animate {
+    animation: cartBadgeBounce 0.3s ease;
+}
+
+@keyframes cartBadgeBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.story-ring-gradient {
+    background: linear-gradient(135deg, var(--brand-fire), var(--brand-purple));
+    border-radius: 9999px;
+}
+
+.glass-header {
+    background: rgba(6, 6, 8, 0.95);
+    border-bottom: 1px solid var(--brand-border);
+}
+
+.glass-card {
+    background: rgba(18, 17, 22, 0.97);
+}
+
+.glass-modal {
+    background: rgba(0, 0, 0, 0.88);
+}
+
+.color-dot {
+    position: relative;
+    transition: transform 0.15s ease;
+}
+.color-dot.active {
+    outline: 2px solid var(--brand-purple-light);
+    outline-offset: 3px;
+    transform: scale(1.1);
+}
+
+.size-pill {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.size-pill.active {
+    background-color: var(--brand-purple);
+    color: #ffffff;
+    border-color: var(--brand-purple);
+}
+
+.quality-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.story-progress-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 9999px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.story-progress-fill {
+    height: 100%;
+    background: #ffffff;
+    width: 0%;
+}
+
+/* Custom Size Guide Table & Checkout Enhancements */
+#sizeGuideContent table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#sizeGuideContent th, #sizeGuideContent td {
+    padding: 0.65rem 0.85rem;
+}
+
+select option {
+    background-color: #121116;
+    color: #ffffff;
+}
+

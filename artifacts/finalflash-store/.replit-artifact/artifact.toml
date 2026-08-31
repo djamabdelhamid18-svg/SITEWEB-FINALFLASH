@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Finalflash Streetwear Store"
+description = "A refined single-page streetwear storefront for Finalflash, showcasing curated thrift pieces with product browsing, favorites, cart, size guidance, delivery details, and WhatsApp checkout for Algerian shoppers."
+version = "1.0.0"
+id = "artifacts/finalflash-store"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22332
+
+[services.development]
+run = "pnpm --filter @workspace/finalflash-store run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/finalflash-store", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/finalflash-store/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22332"
+BASE_PATH = "/"
