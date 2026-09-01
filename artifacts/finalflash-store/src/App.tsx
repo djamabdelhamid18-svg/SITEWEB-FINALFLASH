@@ -149,7 +149,7 @@ function App() {
   function resetFilters() { setCategory('all'); setQuery(''); setSort('featured'); setStockOnly(false); }
 
   return (
-    <div dir="rtl" className="noise min-h-[100dvh] bg-[#f7f5f8]">
+    <div dir="ltr" className="noise min-h-[100dvh] bg-[#f7f5f8]">
       <header className="border-b border-[#e4e0e8] bg-[#f7f5f8]/95 backdrop-blur-md sticky top-0 z-40">
         <div className="mx-auto flex h-[74px] max-w-[1400px] items-center justify-between px-5 sm:px-8 lg:px-12">
           <a href="#top" dir="ltr" className="group flex items-center gap-3" data-testid="link-brand">
