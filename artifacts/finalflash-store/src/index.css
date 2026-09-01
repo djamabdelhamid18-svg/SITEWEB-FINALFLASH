@@ -66,7 +66,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .display-font { font-family: var(--app-font-display); }
 .mono-font { font-family: var(--app-font-mono); }
-.arabic { font-family: 'Noto Kufi Arabic', var(--app-font-sans); }
+.arabic {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+  font-family: 'Noto Kufi Arabic', var(--app-font-sans);
+}
+.ltr {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
 .editorial-rule { border-top: 1px solid hsl(var(--border)); }
 .product-art { background: #211b2b; }
 .product-art img { transition: transform .55s cubic-bezier(.2,.7,.2,1); }

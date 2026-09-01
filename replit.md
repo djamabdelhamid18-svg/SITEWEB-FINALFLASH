@@ -45,7 +45,7 @@ Visitors can browse five curated pieces plus a bundle, search and filter the col
 
 ## Gotchas
 
-- The full product `images/` folder was not uploaded with the original snapshot, so the storefront currently uses graceful branded fallbacks until the real images are copied into a public `/images/` folder.
+- The provided product and feedback images live in the storefront's public `/images/` folder; branded fallbacks remain as protection for any future missing upload.
 - `App.tsx` is intentionally self-contained for this small static storefront; add a backend only when order management or inventory synchronization is actually required.
 
 ## Pointers

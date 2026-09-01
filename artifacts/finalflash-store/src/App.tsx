@@ -88,7 +88,9 @@ const feedbacks = [
   { image: 'feedback-3.jpg', title: 'تأكيد المقاسات', tag: 'مطابقة تامة' },
   { image: 'feedback-4.jpg', title: 'رضا الزبون', tag: 'الدفع عند الاستلام' },
   { image: 'feedback-5.jpg', title: 'خامة ممتازة', tag: 'قماش سميك' },
-  { image: 'feedback-6.jpg', title: 'ثقة متجددة', tag: 'زبون دائم' }
+  { image: 'feedback-6.jpg', title: 'ثقة متجددة', tag: 'زبون دائم' },
+  { image: 'feedback-7.jpg', title: 'قطعة مميزة', tag: 'اختيار موفق' },
+  { image: 'feedback-8.jpg', title: 'تجربة جميلة', tag: 'شكراً لثقتكم' }
 ];
 
 function ProductImage({ src, alt, className = '', fallbackLabel = 'FINALFLASH' }: { src: string; alt: string; className?: string; fallbackLabel?: string }) {
@@ -147,28 +149,28 @@ function App() {
   function resetFilters() { setCategory('all'); setQuery(''); setSort('featured'); setStockOnly(false); }
 
   return (
-    <div className="noise min-h-[100dvh] bg-[#f7f5f8]">
+    <div dir="rtl" className="noise min-h-[100dvh] bg-[#f7f5f8]">
       <header className="border-b border-[#e4e0e8] bg-[#f7f5f8]/95 backdrop-blur-md sticky top-0 z-40">
         <div className="mx-auto flex h-[74px] max-w-[1400px] items-center justify-between px-5 sm:px-8 lg:px-12">
-          <a href="#top" className="group flex items-center gap-3" data-testid="link-brand">
+          <a href="#top" dir="ltr" className="group flex items-center gap-3" data-testid="link-brand">
             <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#22182e] ring-1 ring-[#d8c3e5]"><img src="/images/logo.jpg" alt="" className="h-full w-full object-cover" /></div>
             <div><div className="display-font text-[18px] font-bold tracking-[-.04em]">FINALFLASH</div><div className="hidden text-[9px] uppercase tracking-[.22em] text-[#847d8d] sm:block">Curated in Algeria</div></div>
           </a>
-          <nav className="hidden items-center gap-8 text-[12px] font-semibold uppercase tracking-[.12em] text-[#625a6c] md:flex" aria-label="Main navigation">
+          <nav dir="ltr" className="hidden items-center gap-8 text-[12px] font-semibold uppercase tracking-[.12em] text-[#625a6c] md:flex" aria-label="Main navigation">
             <a href="#collection" className="hover:text-[#7c3fb4]" data-testid="link-collection">Collection</a>
             <a href="#story" className="hover:text-[#7c3fb4]" data-testid="link-story">The edit</a>
             <a href="#faq" className="hover:text-[#7c3fb4]" data-testid="link-faq">Info</a>
           </nav>
           <div className="flex items-center gap-2">
-            <label className="hidden items-center gap-2 border-b border-[#bdb7c3] px-2 py-1.5 focus-within:border-[#7c3fb4] lg:flex"><Search size={15} className="text-[#7c3fb4]" /><span className="sr-only">Search pieces</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the edit" className="w-32 bg-transparent text-xs outline-none placeholder:text-[#9c95a4]" data-testid="input-search-desktop" /></label>
+             <label dir="ltr" className="hidden items-center gap-2 border-b border-[#bdb7c3] px-2 py-1.5 focus-within:border-[#7c3fb4] lg:flex"><Search size={15} className="text-[#7c3fb4]" /><span className="sr-only">Search pieces</span><input dir="auto" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the edit" className="w-32 bg-transparent text-xs outline-none placeholder:text-[#9c95a4]" data-testid="input-search-desktop" /></label>
             <button onClick={() => setCartOpen(true)} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#ebe5f0]" aria-label="Open shopping bag" data-testid="button-open-cart"><ShoppingBag size={19} strokeWidth={1.8} />{itemCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-[#7c3fb4] px-1 text-[9px] font-bold text-white">{itemCount}</span>}</button>
           </div>
         </div>
         <div className="border-t border-[#e4e0e8] px-5 py-2.5 lg:hidden">
-          <label className="mx-auto flex max-w-[520px] items-center gap-2 border-b border-[#bdb7c3] px-1 py-1.5 focus-within:border-[#7c3fb4]">
+           <label dir="ltr" className="mx-auto flex max-w-[520px] items-center gap-2 border-b border-[#bdb7c3] px-1 py-1.5 focus-within:border-[#7c3fb4]">
             <Search size={15} className="text-[#7c3fb4]" />
             <span className="sr-only">Search pieces</span>
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the edit / ابحث عن قطعة" className="w-full bg-transparent text-xs outline-none placeholder:text-[#9c95a4]" data-testid="input-search-mobile" />
+             <input dir="auto" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the edit / ابحث عن قطعة" className="w-full bg-transparent text-xs outline-none placeholder:text-[#9c95a4]" data-testid="input-search-mobile" />
           </label>
         </div>
       </header>
@@ -178,10 +180,10 @@ function App() {
         <section className="mx-auto grid max-w-[1400px] gap-7 px-5 pb-20 pt-12 sm:px-8 sm:pt-16 lg:grid-cols-[1.07fr_.93fr] lg:gap-16 lg:px-12 lg:pb-28 lg:pt-24">
           <div className="flex flex-col justify-center reveal">
             <p className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.22em] text-[#7c3fb4]"><span className="h-px w-8 bg-[#b58cd9]" /> Hand-picked streetwear / الجزائر</p>
-            <h1 className="display-font max-w-[720px] text-[clamp(3rem,8vw,7.2rem)] font-bold leading-[.86] tracking-[-.075em] text-[#241c2c]">RARE<br /><span className="text-[#7c3fb4]">BY CHOICE.</span></h1>
+             <h1 dir="ltr" className="display-font max-w-[720px] text-[clamp(3rem,8vw,7.2rem)] font-bold leading-[.86] tracking-[-.075em] text-[#241c2c]">RARE<br /><span className="text-[#7c3fb4]">BY CHOICE.</span></h1>
             <p className="arabic mt-8 max-w-[540px] text-[13px] leading-8 text-[#665d6c] sm:text-[15px]">قطع ستريت وير وثريفت منتقاة بعين شخص حقيقي. حالة صادقة، كميات قليلة، وطلب سهل عبر واتساب في كل الجزائر.</p>
-            <div className="mt-9 flex flex-wrap items-center gap-3"><a href="#collection" className="group flex items-center gap-3 bg-[#241c2c] px-5 py-3.5 text-xs font-bold text-white transition-colors hover:bg-[#7c3fb4]" data-testid="link-shop-collection">Shop the collection <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></a><a href="#story" className="px-4 py-3.5 text-xs font-bold text-[#5f5667] underline decoration-[#c8bed0] underline-offset-4 hover:text-[#7c3fb4]" data-testid="link-our-standard">Our standard</a></div>
-            <div className="mt-14 grid max-w-[500px] grid-cols-3 border-y border-[#ded8e2] py-4 text-[10px] uppercase tracking-[.12em] text-[#817988]"><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">05</strong> hand-picked edits</div><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">58</strong> wilayas</div><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">01:01</strong> one of one</div></div>
+             <div dir="ltr" className="mt-9 flex flex-wrap items-center gap-3"><a href="#collection" className="group flex items-center gap-3 bg-[#241c2c] px-5 py-3.5 text-xs font-bold text-white transition-colors hover:bg-[#7c3fb4]" data-testid="link-shop-collection">Shop the collection <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></a><a href="#story" className="px-4 py-3.5 text-xs font-bold text-[#5f5667] underline decoration-[#c8bed0] underline-offset-4 hover:text-[#7c3fb4]" data-testid="link-our-standard">Our standard</a></div>
+             <div dir="ltr" className="mt-14 grid max-w-[500px] grid-cols-3 border-y border-[#ded8e2] py-4 text-[10px] uppercase tracking-[.12em] text-[#817988]"><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">05</strong> hand-picked edits</div><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">58</strong> wilayas</div><div><strong className="display-font block text-lg tracking-normal text-[#2c2233]">01:01</strong> one of one</div></div>
           </div>
           <div className="relative min-h-[460px] overflow-hidden bg-[#2a2033] reveal [animation-delay:.1s] sm:min-h-[600px]">
             <ProductImage src="jogger-black.jpg" alt="Baggy Jogger in black" className="h-full w-full object-cover mix-blend-normal" fallbackLabel="BAGGY / 01" />
@@ -238,7 +240,7 @@ function App() {
 }
 
 function ProductCard({ product, favorite, onFavorite, onOpen, onAdd, delay }: { product: Product; favorite: boolean; onFavorite: () => void; onOpen: () => void; onAdd: () => void; delay: number }) {
-  return <article className="group reveal" style={{ animationDelay: `${delay}ms` }} data-testid={`card-product-${product.id}`}><div className="product-art relative aspect-[.78] cursor-pointer overflow-hidden bg-[#2a2033]" onClick={onOpen}><ProductImage src={product.images[0]} alt={product.title} className="h-full w-full object-cover" fallbackLabel={product.category === 'bundle' ? 'THE SET' : 'FINALFLASH'} /><div className="absolute left-3 top-3 flex flex-col gap-1"><span className="w-max bg-[#241a30] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#eadcf2]">{product.badge}</span>{product.stockCount <= 2 && <span className="w-max bg-[#b35d4f] px-2 py-1 text-[9px] font-bold text-white">Only {product.stockCount} left</span>}</div><button onClick={e => { e.stopPropagation(); onFavorite(); }} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#f7f5f8]/90 text-[#48394e] hover:text-[#7c3fb4]" aria-label={favorite ? `Remove ${product.title} from favorites` : `Add ${product.title} to favorites`} data-testid={`button-favorite-${product.id}`}><Heart size={15} fill={favorite ? 'currentColor' : 'none'} /></button><button onClick={e => { e.stopPropagation(); onOpen(); }} className="absolute bottom-3 left-3 right-3 hidden items-center justify-center gap-2 bg-[#f7f5f8]/95 py-3 text-[10px] font-bold text-[#2d2334] backdrop-blur-sm hover:bg-white sm:flex" data-testid={`button-quick-view-${product.id}`}><Eye size={14} /> Quick view</button></div><div className="pt-3"><div className="flex items-start justify-between gap-2"><div><button onClick={onOpen} className="text-left display-font text-sm font-bold leading-tight text-[#302536] hover:text-[#7c3fb4]" data-testid={`button-title-${product.id}`}>{product.title}</button><p className="mt-1 text-[10px] text-[#897f8e]">{product.sizes.join(' / ')} · {product.quality}</p></div><button onClick={onAdd} className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d4cadb] text-[#7c3fb4] hover:border-[#7c3fb4] hover:bg-[#7c3fb4] hover:text-white" aria-label={`Add ${product.title} to bag`} data-testid={`button-add-product-${product.id}`}><Plus size={15} /></button></div><p className="mono-font mt-3 text-xs font-medium text-[#403345]">{formatPrice(product.price)}</p></div></article>;
+  return <article dir="ltr" className="group reveal" style={{ animationDelay: `${delay}ms` }} data-testid={`card-product-${product.id}`}><div className="product-art relative aspect-[.78] cursor-pointer overflow-hidden bg-[#2a2033]" onClick={onOpen}><ProductImage src={product.images[0]} alt={product.title} className="h-full w-full object-cover" fallbackLabel={product.category === 'bundle' ? 'THE SET' : 'FINALFLASH'} /><div className="absolute left-3 top-3 flex flex-col gap-1"><span className="w-max bg-[#241a30] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#eadcf2]">{product.badge}</span>{product.stockCount <= 2 && <span className="w-max bg-[#b35d4f] px-2 py-1 text-[9px] font-bold text-white">Only {product.stockCount} left</span>}</div><button onClick={e => { e.stopPropagation(); onFavorite(); }} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#f7f5f8]/90 text-[#48394e] hover:text-[#7c3fb4]" aria-label={favorite ? `Remove ${product.title} from favorites` : `Add ${product.title} to favorites`} data-testid={`button-favorite-${product.id}`}><Heart size={15} fill={favorite ? 'currentColor' : 'none'} /></button><button onClick={e => { e.stopPropagation(); onOpen(); }} className="absolute bottom-3 left-3 right-3 hidden items-center justify-center gap-2 bg-[#f7f5f8]/95 py-3 text-[10px] font-bold text-[#2d2334] backdrop-blur-sm hover:bg-white sm:flex" data-testid={`button-quick-view-${product.id}`}><Eye size={14} /> Quick view</button></div><div className="pt-3"><div className="flex items-start justify-between gap-2"><div><button onClick={onOpen} dir="ltr" className="text-left display-font text-sm font-bold leading-tight text-[#302536] hover:text-[#7c3fb4]" data-testid={`button-title-${product.id}`}>{product.title}</button><p dir="auto" className="mt-1 text-[10px] text-[#897f8e]">{product.sizes.join(' / ')} · {product.quality}</p></div><button onClick={onAdd} className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d4cadb] text-[#7c3fb4] hover:border-[#7c3fb4] hover:bg-[#7c3fb4] hover:text-white" aria-label={`Add ${product.title} to bag`} data-testid={`button-add-product-${product.id}`}><Plus size={15} /></button></div><p dir="ltr" className="mono-font mt-3 text-xs font-medium text-[#403345]">{formatPrice(product.price)}</p></div></article>;
 }
 
 function ModalShell({ children, onClose, labelledBy }: { children: ReactNode; onClose: () => void; labelledBy?: string }) {
