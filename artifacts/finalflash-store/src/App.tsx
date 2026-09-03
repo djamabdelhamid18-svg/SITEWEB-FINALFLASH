@@ -30,34 +30,6 @@ const categories = [
   { id: 'bundle', label: 'Special Sets' }
 ];
 
-const wilayas = [
-  '01 - أدرار (Adrar)', '02 - الشلف (Chlef)', '03 - الأغواط (Laghouat)', '04 - أم البواقي (Oum El Bouaghi)',
-  '05 - باتنة (Batna)', '06 - بجاية (Béjaïa)', '07 - بسكرة (Biskra)', '08 - بشار (Béchar)',
-  '09 - البليدة (Blida)', '10 - البويرة (Bouira)', '11 - تمنراست (Tamanrasset)', '12 - تبسة (Tébessa)',
-  '13 - تلمسان (Tlemcen)', '14 - تيارت (Tiaret)', '15 - تيزي وزو (Tizi Ouzou)', '16 - الجزائر العاصمة (Alger)',
-  '17 - الجلفة (Djelfa)', '18 - جيجل (Jijel)', '19 - سطيف (Sétif)', '20 - سعيدة (Saïda)',
-  '21 - سكيكدة (Skikda)', '22 - سيدي بلعباس (Sidi Bel Abbès)', '23 - عنابة (Annaba)', '24 - قالمة (Guelma)',
-  '25 - قسنطينة (Constantine)', '26 - المدية (Médéa)', '27 - مستغانم (Mostaganem)', '28 - المسيلة (M’Sila)',
-  '29 - معسكر (Mascara)', '30 - ورقلة (Ouargla)', '31 - وهران (Oran)', '32 - البيض (El Bayadh)',
-  '33 - إليزي (Illizi)', '34 - برج بوعريريج (Bordj Bou Arreridj)', '35 - بومرداس (Boumerdès)', '36 - الطارف (El Tarf)',
-  '37 - تندوف (Tindouf)', '38 - تيسمسيلت (Tissemsilt)', '39 - الوادي (El Oued)', '40 - خنشلة (Khenchela)',
-  '41 - سوق أهراس (Souk Ahras)', '42 - تيبازة (Tipaza)', '43 - ميلة (Mila)', '44 - عين الدفلى (Aïn Defla)',
-  '45 - النعامة (Naâma)', '46 - عين تموشنت (Aïn Témouchent)', '47 - غرداية (Ghardaïa)', '48 - غليزان (Relizane)',
-  '49 - تيميمون (Timimoun)', '50 - برج باجي مختار (Bordj Badji Mokhtar)', '51 - أولاد جلال (Ouled Djellal)',
-  '52 - بني عباس (Béni Abbès)', '53 - عين صالح (In Salah)', '54 - عين قزام (In Guezzam)', '55 - تقرت (Touggourt)',
-  '56 - جانت (Djanet)', '57 - المغير (El M’Ghair)', '58 - المنيعة (El Meniaa)'
-];
-
-const feedbacks = [
-  { image: 'feedback-1.jpg', title: 'محادثة زبون مؤكد', tag: 'سرعة التوصيل 24 ساعة' },
-  { image: 'feedback-2.jpg', title: 'استلام الطرد وفحصه', tag: 'جودة 10/10 ومطابقة' },
-  { image: 'feedback-3.jpg', title: 'تأكيد المقاسات بالمليمتر', tag: 'مطابقة تامة للوصف' },
-  { image: 'feedback-4.jpg', title: 'رضا الزبون التام', tag: 'الدفع عند الاستلام' },
-  { image: 'feedback-5.jpg', title: 'خامة قطنية ثقيلة', tag: 'قماش 340 GSM متين' },
-  { image: 'feedback-6.jpg', title: 'ثقة متجددة وطلب ثانٍ', tag: 'زبون دائم' },
-  { image: 'feedback-7.jpg', title: 'قطعة نادرة ومميزة', tag: 'اختيار موفق' },
-  { image: 'feedback-8.jpg', title: 'معاينة قبل الدفع باليد', tag: 'شكراً لثقتكم' }
-];
 
 function ProductImage({
   src,
@@ -115,37 +87,6 @@ function writeStored<T>(key: string, data: T): void {
   }
 }
 
-function normalizeAlgerianPhone(input: string): { valid: boolean; normalized: string } {
-  let cleaned = input.replace(/[\s\-\(\)\.]/g, '');
-  if (cleaned.startsWith('+213')) {
-    cleaned = '0' + cleaned.slice(4);
-  } else if (cleaned.startsWith('00213')) {
-    cleaned = '0' + cleaned.slice(5);
-  } else if (cleaned.startsWith('213')) {
-    cleaned = '0' + cleaned.slice(3);
-  }
-  const valid = /^0[567]\d{8}$/.test(cleaned);
-  return { valid, normalized: cleaned };
-}
-
-function calculateDeliveryFee(wilaya: string, method: 'home' | 'desk'): number {
-  if (!wilaya) return 0;
-  const match = wilaya.match(/^(\d{2})/);
-  if (!match) return 600;
-  const code = parseInt(match[1], 10);
-  if (code === 16) {
-    return method === 'home' ? 400 : 250;
-  }
-  const tier2 = [2, 6, 9, 10, 13, 15, 18, 19, 21, 23, 25, 26, 27, 31, 35, 42, 44];
-  if (tier2.includes(code)) {
-    return method === 'home' ? 600 : 400;
-  }
-  const tier4 = [1, 3, 7, 8, 11, 12, 17, 30, 32, 33, 37, 39, 45, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58];
-  if (tier4.includes(code)) {
-    return method === 'home' ? 950 : 650;
-  }
-  return method === 'home' ? 700 : 450;
-}
 
 function generateLocalOrderNumber(): string {
   const year = new Date().getFullYear();
