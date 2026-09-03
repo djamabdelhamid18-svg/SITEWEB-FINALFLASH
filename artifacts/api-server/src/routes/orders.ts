@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, ne } from "drizzle-orm";
-import { db, inventoryReservationsTable, orderItemsTable, ordersTable } from "@workspace/db";
+import { db, inventoryReservationsTable, orderAuditLogsTable, orderItemsTable, ordersTable } from "@workspace/db";
 import { CreateOrderBody, CreateOrderResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -218,6 +218,15 @@ router.post("/orders", async (req, res): Promise<void> => {
         });
       }
 
+      // Record audit log entry for order creation
+      await tx.insert(orderAuditLogsTable).values({
+        orderId: created.id,
+        action: "order_created",
+        newStatus: "new",
+        changedBy: "storefront_checkout",
+        notes: "طلب جديد عبر المتجر",
+      });
+
       return created;
     });
 
@@ -278,13 +287,52 @@ function adminAuthMiddleware(req: any, res: any, next: any): void {
 
 router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
   try {
-    const orders = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+    const statusFilter = req.query.status as string;
+    const searchQuery = (req.query.q || req.query.search) as string;
+
+    let allOrders = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
+    if (statusFilter && statusFilter !== "all") {
+      allOrders = allOrders.filter((o) => o.status === statusFilter);
+    }
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      allOrders = allOrders.filter(
+        (o) =>
+          o.orderNumber.toLowerCase().includes(q) ||
+          o.customerName.toLowerCase().includes(q) ||
+          o.phone.includes(q) ||
+          o.wilaya.toLowerCase().includes(q) ||
+          o.commune.toLowerCase().includes(q)
+      );
+    }
+
+    const total = allOrders.length;
+    const isPaginated = req.query.paginate === "true" || req.query.page !== undefined;
+    const paginatedOrders = isPaginated
+      ? allOrders.slice((page - 1) * limit, page * limit)
+      : allOrders;
+
     const items = await db.select().from(orderItemsTable);
-    const ordersWithItems = orders.map((ord) => ({
+    const ordersWithItems = paginatedOrders.map((ord) => ({
       ...ord,
       items: items.filter((item) => item.orderId === ord.id),
     }));
-    res.json(ordersWithItems);
+
+    if (isPaginated) {
+      res.json({
+        orders: ordersWithItems,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit) || 1,
+        },
+      });
+    } else {
+      res.json(ordersWithItems);
+    }
   } catch (err) {
     req.log.warn({ err }, "Failed to fetch orders from database");
     res.status(500).json({ error: "Failed to fetch orders" });
@@ -293,7 +341,7 @@ router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
 
 router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  const { status } = req.body;
+  const { status, notes } = req.body;
   if (!id || typeof status !== "string" || !VALID_ORDER_STATUSES.includes(status as any)) {
     res.status(400).json({
       error: `Invalid status. Allowed statuses are: ${VALID_ORDER_STATUSES.join(", ")}`,
@@ -303,11 +351,28 @@ router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promis
   }
 
   try {
+    const existing = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    if (existing.length === 0) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    const previousStatus = existing[0].status;
+
     const [updated] = await db
       .update(ordersTable)
       .set({ status })
       .where(eq(ordersTable.id, id))
       .returning();
+
+    // Record audit log for status change
+    await db.insert(orderAuditLogsTable).values({
+      orderId: id,
+      action: "status_change",
+      previousStatus,
+      newStatus: status,
+      changedBy: "admin",
+      notes: typeof notes === "string" ? notes.trim() : null,
+    });
 
     // If order is cancelled, immediately delete its inventory reservation to liberate the 1-of-1 piece
     if (status === "cancelled") {
@@ -319,6 +384,25 @@ router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promis
   } catch (err) {
     req.log.warn({ err }, "Failed to update order status");
     res.status(500).json({ error: "Failed to update order status" });
+  }
+});
+
+router.get("/orders/:id/audit-logs", adminAuthMiddleware, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) {
+    res.status(400).json({ error: "Invalid order ID" });
+    return;
+  }
+  try {
+    const logs = await db
+      .select()
+      .from(orderAuditLogsTable)
+      .where(eq(orderAuditLogsTable.orderId, id))
+      .orderBy(desc(orderAuditLogsTable.createdAt));
+    res.json(logs);
+  } catch (err) {
+    req.log.warn({ err }, "Failed to fetch audit logs");
+    res.status(500).json({ error: "Failed to fetch audit logs" });
   }
 });
 
