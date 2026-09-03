@@ -60,6 +60,7 @@ export interface OrderInput {
      * @maxLength 120
      */
   wilaya: string;
+  commune: string;
   deliveryMethod: OrderInputDeliveryMethod;
   /** @minimum 0 */
   subtotal: number;

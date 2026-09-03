@@ -16,256 +16,11 @@ const currency = 'DA';
 const imageBase = '/images/';
 const whatsappNumber = '213778659640';
 
-type Color = { name: string; hex: string; image?: string };
-type Measurement = { label: string; value: string };
-type Product = {
-  id: number;
-  title: string;
-  category: string;
-  price: number;
-  badge: string;
-  rating: number;
-  inStock: boolean;
-  stockCount: number;
-  quality: string;
-  conditionDetails: string;
-  fabric: string;
-  fit: string;
-  care: string;
-  measurements: Measurement[];
-  images: string[];
-  description: string;
-  features: string[];
-  sizes: string[];
-  colors: Color[];
-  isBundle?: boolean;
-};
-
-type BundleOptions = {
-  joggerColor: string;
-  joggerSize: string;
-  teeModel: string;
-  teeSize: string;
-};
-
-type CartItem = {
-  product: Product;
-  size: string;
-  color: Color | null;
-  quantity: number;
-  bundleOptions?: BundleOptions;
-};
-
-type OrderRecord = {
-  orderNumber: string;
-  date: string;
-  customerName: string;
-  phone: string;
-  wilaya: string;
-  commune: string;
-  deliveryMethod: string;
-  subtotal: number;
-  deliveryFee: number;
-  total: number;
-  items: Array<{
-    productId?: number;
-    productTitle: string;
-    size: string;
-    color: string | null;
-    quantity: number;
-    unitPrice: number;
-  }>;
-};
-
-const products: Product[] = [
-  {
-    id: 1,
-    title: 'Baggy Jogger',
-    category: 'pants',
-    price: 2900,
-    badge: 'MOST WANTED',
-    rating: 5,
-    inStock: true,
-    stockCount: 6,
-    quality: '10/10 تنفيذ خاص',
-    conditionDetails: 'قطعة حصرية مصممة من تنفيذ Finalflash. تطريز Flaming Dice دقيق ومكثف، خياطة ثلاثية متينة، ومطاط خصر مريح مع رباط قابل للتعديل.',
-    fabric: '100% قطن ثقيل عالي الكثافة (Heavyweight Cotton 340 GSM)',
-    fit: 'Streetwear Baggy Cut — قصة فضفاضة مع فتحة كاحل مريحة فوق الأحذية',
-    care: 'غسيل بارد على 30 درجة مئوية مقلوب للحفاظ على لون القماش والتطريز، لا تستخدم المبيضات.',
-    measurements: [
-      { label: 'الطول الكامل', value: 'M: 98 cm | L: 102 cm | XL: 106 cm' },
-      { label: 'محيط الخصر (مطاطي)', value: 'M: 72–86 cm | L: 78–92 cm | XL: 84–98 cm' },
-      { label: 'عرض الفخذ (Thigh)', value: 'M: 33 cm | L: 35 cm | XL: 37 cm' },
-      { label: 'اتساع الكاحل (Leg Opening)', value: '24 cm (Open Bottom)' }
-    ],
-    images: ['jogger-black.jpg', 'jogger-grey.jpg'],
-    description: 'بنطال جوغر بقصة باغية فضفاضة ومريحة. قماش قطني سميك فائق التحمل، وتطريز Flaming Dice المميز من تنفيذ Finalflash.',
-    features: [
-      'Baggy streetwear fit مريح وعصري',
-      'تطريز Flaming Dice عالي الدقة على الجيب',
-      'خصر مطاطي مع رباط داخلي سميك للتعديل',
-      'متوفر باللونين الأسود والرمادي الكلاسيكي'
-    ],
-    sizes: ['M', 'L', 'XL'],
-    colors: [
-      { name: 'Black', hex: '#17151a', image: 'jogger-black.jpg' },
-      { name: 'Grey', hex: '#8b8990', image: 'jogger-grey.jpg' }
-    ]
-  },
-  {
-    id: 2,
-    title: 'Thrifted Gymshark T-Shirt',
-    category: 'tshirts',
-    price: 2000,
-    badge: 'THRIFT 10/10',
-    rating: 5,
-    inStock: true,
-    stockCount: 2,
-    quality: '10/10 وكالة (Deadstock)',
-    conditionDetails: 'قطعة ثريفت أصلية بحالة الوكالة التامة بدون أي ارتداء مسبق. الشعار الأمامي سليم 100% والطباعة الفضية العاكسة في الخلف نظيفة وبدون أي تشققات.',
-    fabric: '95% قطن ممشوق فائق النعومة + 5% إيلاستين لمطاطية وانسيابية مريحة',
-    fit: 'Athletic Streetwear Fit يبرز الإطلالة مع راحة كاملة',
-    care: 'غسيل خفيف بالماء البارد مقلوب لتفادي أي احتكاك بالطباعة العاكسة، تجفيف بالهواء.',
-    measurements: [
-      { label: 'المقاس الموصى به', value: 'S (طول 160–173 cm / وزن 52–65 kg)' },
-      { label: 'الطول من الكتف', value: '69 cm' },
-      { label: 'عرض الصدر (Pit-to-Pit)', value: '50 cm' },
-      { label: 'عرض الكتفين', value: '44 cm' }
-    ],
-    images: ['gymshark-front.jpg', 'gymshark-back.jpg'],
-    description: 'تيشيرت Gymshark أصلي 100% بحالة الوكالة التامة. شعار أمامي مطرز وطباعة فضية جريئة عاكسة في الخلف.',
-    features: [
-      'قطعة ثريفت أصلية بحالة استثنائية 10/10',
-      'طباعة فضية هندسية نقية على الظهر بالكامل',
-      'خامة قطنية ناعمة للغاية ومقاومة للتمدد',
-      'المقاس المتوفر: S'
-    ],
-    sizes: ['S'],
-    colors: [{ name: 'Black Silver', hex: '#17151a', image: 'gymshark-front.jpg' }]
-  },
-  {
-    id: 3,
-    title: 'Thrifted Hard Rock Graphic Tee',
-    category: 'tshirts',
-    price: 1500,
-    badge: '1 OF 1 VINTAGE',
-    rating: 5,
-    inStock: true,
-    stockCount: 1,
-    quality: '9/10 ممتازة (Vintage)',
-    conditionDetails: 'قطعة Vintage أصلية ونادرة 1 من 1. لون أزرق كلاسيكي متماسك، مع جرافيك القيثارة والتنانين ذو طابع كلاسيكي أصيل، خالية من أي ثقوب أو بقع.',
-    fabric: '100% قطن طبيعي مسبق الغسل (Vintage Washed Heavy Cotton)',
-    fit: 'Boxy Vintage Fit قصة مربعة كلاسيكية بياقة مريحة',
-    care: 'غسيل بارد مع ألوان مشابهة، كي مقلوب بدرجة حرارة خفيفة.',
-    measurements: [
-      { label: 'المقاس', value: 'M (طول 168–178 cm / وزن 62–76 kg)' },
-      { label: 'الطول الكامل', value: '72 cm' },
-      { label: 'عرض الصدر (Pit-to-Pit)', value: '54 cm' },
-      { label: 'عرض الأكتاف', value: '48 cm' }
-    ],
-    images: ['hardrock-front.jpg', 'hardrock-back.jpg'],
-    description: 'تيشيرت Hard Rock Cafe vintage نادر باللون الأزرق الداكن. جرافيك قيثارة وتنانين أصلي بطابع الروك أند رول الكلاسيكي.',
-    features: [
-      'قطعة ثريفت نادرة وفريدة 1 of 1',
-      'طبعة Hard Rock Cafe أصلية ومميزة',
-      'نسيج قطني متماسك يتحمل الارتداء والغسيل',
-      'المقاس: M'
-    ],
-    sizes: ['M'],
-    colors: [{ name: 'Vintage Blue', hex: '#243b66', image: 'hardrock-front.jpg' }]
-  },
-  {
-    id: 4,
-    title: 'Authentic All Star Converse',
-    category: 'shoes',
-    price: 2900,
-    badge: 'AUTHENTIC 9.5/10',
-    rating: 5,
-    inStock: true,
-    stockCount: 1,
-    quality: '9.5/10 شبه جديد (Near Mint)',
-    conditionDetails: 'حذاء Converse Chuck Taylor All Star أصلي باللون الأبيض الناصع. نظافة شبه جديدة، النعل سليم 100% بدون أي تآكل، والقماش الداخلي معقم وجاهز للارتداء فوراً.',
-    fabric: 'Heavyweight Durable Canvas + نعل مطاطي مقوى Vulcanized Rubber',
-    fit: 'Standard EU Converse Fit — ينصح باختيار مقاسك المعتاد',
-    care: 'تنظيف موضعي بواسطة فرشاة ناعمة وماء وصابون خفيف، تجنب الغسالة الكهربائية.',
-    measurements: [
-      { label: 'المقاس الأوروبي', value: '39 EU' },
-      { label: 'طول النعل الداخلي', value: '24.5 cm' },
-      { label: 'المقاس الأمريكي المقابل', value: 'US Men 6.5 / US Women 8.5' }
-    ],
-    images: ['Converse-1.jpg', 'Converse-2.jpg', 'Converse-3.jpg', 'Converse-4.jpg', 'Converse-5.jpg', 'Converse-6.jpg'],
-    description: 'Converse Chuck Taylor All Star أصلي بلون أبيض ناصع. نظافة شبه جديدة من الوكالة وجاهز للارتداء مع كافة إطلالات الستريت وير.',
-    features: [
-      'حذاء أصلي 100% بشعار All Star الكلاسيكي',
-      'حالة النعل والجزء العلوي ممتازة 9.5/10',
-      'لون White Classic متناسق مع كل السراويل',
-      'المقاس المتوفر: 39 EU'
-    ],
-    sizes: ['39'],
-    colors: [{ name: 'White Classic', hex: '#e9e4da', image: 'Converse-1.jpg' }]
-  },
-  {
-    id: 5,
-    title: 'Carhartt Baggy Pants',
-    category: 'pants',
-    price: 3000,
-    badge: 'WORKWEAR 9.5/10',
-    rating: 5,
-    inStock: true,
-    stockCount: 1,
-    quality: '9.5/10 متانة أصلية',
-    conditionDetails: 'بنطال Carhartt أصلي بقماش كانفاس سميك مقاوم للاهتراء والتمزق. سحابات نحاسية أصلية قوية، جيوب عملية متعددة، وحالة عامة ممتازة لعشاق ملابس العمل والستريت وير والتزلج.',
-    fabric: '100% كانفاس قطني سميك فائق المتانة (Heavy Duty Duck Canvas)',
-    fit: 'Relaxed Baggy Workwear Fit مع اتساع مريح عند الحذاء',
-    care: 'غسيل في الغسالة بماء بارد، خامة شديدة التحمل تزداد جمالاً مع الوقت.',
-    measurements: [
-      { label: 'المقاس المقدر', value: 'L (W32–W34 / خصر 84–88 cm)' },
-      { label: 'الطول الكامل', value: '104 cm' },
-      { label: 'عرض الساق عند الكاحل', value: '25 cm Baggy Leg Opening' },
-      { label: 'محيط الفخذ', value: '36 cm' }
-    ],
-    images: ['CarharttBaggyPants1.jpg', 'CarharttBaggyPants2.jpg', 'CarharttBaggyPants3.jpg', 'CarharttBaggyPants4.jpg'],
-    description: 'بنطال Carhartt أصلي بقصة فضفاضة. كانفاس سميك ومقاوم لعشاق الستريت وير والسكيت بورد.',
-    features: [
-      'خامة Carhartt أصلية شديدة التحمل',
-      'قصة Baggy كلاسيكية مع جيوب جانبية عملية',
-      'حالة ممتازة 9.5/10 مع خياطة مدعمة ثلاثية',
-      'المقاس الموصى به: L (W32–W34)'
-    ],
-    sizes: ['L'],
-    colors: [{ name: 'Black Canvas', hex: '#17151a', image: 'CarharttBaggyPants1.jpg' }]
-  },
-  {
-    id: 6,
-    title: 'The Finalflash Set',
-    category: 'bundle',
-    price: 3950,
-    badge: 'SAVE 950 DA',
-    rating: 5,
-    inStock: true,
-    stockCount: 4,
-    quality: 'وفر 950 دج (طقم كامل)',
-    conditionDetails: 'طقم متناسق يتكون من بنطال Baggy Jogger مع التيشيرت المفضل لديك (Gymshark 10/10 أو Hard Rock Cafe Vintage). تختار ألوان ومقاسات كل قطعة بنفسك بسعر تفضيلي.',
-    fabric: 'أقمشة قطنية ثقيلة ونقية 100% عالية الجودة.',
-    fit: 'Streetwear Complete Outfit متكامل ومريح.',
-    care: 'غسيل بارد مقلوب لكل قطعة للحفاظ على التطريز والطباعة.',
-    measurements: [
-      { label: 'الجوغر', value: 'متوفر بمقاسات M, L, XL باللون الأسود أو الرمادي' },
-      { label: 'التيشيرت', value: 'Gymshark (S) أسود أو Hard Rock (M) أزرق فينتاج' }
-    ],
-    images: ['jogger-grey.jpg', 'gymshark-front.jpg', 'jogger-black.jpg', 'hardrock-front.jpg'],
-    description: 'Baggy Jogger بتطريز Flaming Dice مع تيشيرت أصلي من اختيارك (Gymshark أو Hard Rock). اختر تركيبتك المفضلة ووفّر 950 دج على الطقم الكامل.',
-    features: [
-      'تخصيص كامل: اختر لون ومقاس الجوغر',
-      'اختر بين تيشيرت Gymshark 10/10 أو Hard Rock',
-      '3,950 DA فقط بدل 4,900 DA (وفر 950 دج)',
-      'توصيل لـ 58 ولاية مع المعاينة قبل الدفع'
-    ],
-    sizes: ['Custom'],
-    colors: [{ name: 'Custom Selection', hex: '#7c3fb4', image: 'jogger-grey.jpg' }],
-    isBundle: true
-  }
-];
+import type { Color, Measurement, Product, BundleOptions, CartItem, OrderRecord } from './types/store';
+import { products, honestMeasurementNotice } from './data/products';
+import { wilayas, calculateDeliveryFee, normalizeAlgerianPhone } from './data/wilayas';
+import { feedbacks } from './data/feedbacks';
+import { useModalA11y } from './hooks/useModalA11y';
 
 const categories = [
   { id: 'all', label: 'All pieces / كل القطع' },
@@ -1527,6 +1282,8 @@ function ModalShell({
   onClose: () => void;
   labelledBy?: string;
 }) {
+  useModalA11y(true, onClose);
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-[#1c1422]/60 p-0 backdrop-blur-sm sm:items-center sm:p-6"
@@ -1691,6 +1448,10 @@ function QuickView({
                     ))}
                   </tbody>
                 </table>
+                <div className="mt-3 rounded border border-[#e2d8e8] bg-[#f9f5fb] p-2.5 text-[10px] leading-5 text-[#6c5b76]">
+                  <p className="font-bold text-[#7c3fb4]">معاينة المقاس قبل الدفع:</p>
+                  <p>{honestMeasurementNotice}</p>
+                </div>
               </div>
             )}
 
@@ -1895,6 +1656,8 @@ function CartDrawer({
   onCheckout: () => void;
   onOpenPolicies: () => void;
 }) {
+  useModalA11y(true, onClose);
+
   return (
     <div
       className="fixed inset-0 z-[60] bg-[#1c1422]/50 backdrop-blur-xs"
@@ -2048,6 +1811,7 @@ function WishlistDrawer({
   onAddToCart: (p: Product) => void;
 }) {
   const list = products.filter(p => favorites.includes(p.id));
+  useModalA11y(true, onClose);
 
   return (
     <div
@@ -2195,6 +1959,7 @@ function CheckoutModal({
       customerName: name.trim(),
       phone: phoneCheck.normalized,
       wilaya,
+      commune: commune.trim(),
       deliveryMethod: delivery,
       subtotal,
       deliveryFee,
@@ -2226,7 +1991,6 @@ function CheckoutModal({
     };
 
     try {
-      // Try backend save first
       const res = await createOrder.mutateAsync({ data: orderPayload });
       const actualOrderNumber = res.orderNumber || localOrdNum;
       finalRecord.orderNumber = actualOrderNumber;
@@ -2242,20 +2006,45 @@ function CheckoutModal({
 
       onOrderSuccess(finalRecord);
       setSent(true);
-    } catch {
-      // Dual resilience fallback: if server is offline, proceed with local order number
-      setOrderNumber(localOrdNum);
-      const msg = buildWhatsAppMessage(localOrdNum);
-      const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
+    } catch (err: any) {
       if (whatsappWindow) {
-        whatsappWindow.location.href = waUrl;
-      } else {
-        window.open(waUrl, '_blank', 'noopener,noreferrer');
+        whatsappWindow.close();
       }
-
-      onOrderSuccess(finalRecord);
-      setSent(true);
+      const apiMsg = err?.response?.data?.error || err?.message || 'تعذر الاتصال بقاعدة البيانات لحفظ الطلب تلقائياً.';
+      setOrderError(apiMsg);
     }
+  }
+
+  function handleDirectWhatsAppFallback() {
+    const localOrdNum = generateLocalOrderNumber();
+    const finalRecord: OrderRecord = {
+      orderNumber: localOrdNum,
+      date: new Date().toLocaleDateString('ar-DZ', { year: 'numeric', month: 'short', day: 'numeric' }),
+      customerName: name.trim(),
+      phone: phoneCheck.normalized,
+      wilaya,
+      commune: commune.trim(),
+      deliveryMethod: delivery === 'home' ? 'توصيل للباب' : 'استلام من المكتب',
+      subtotal,
+      deliveryFee,
+      total,
+      items: cart.map(item => ({
+        productId: item.product.id,
+        productTitle: item.bundleOptions
+          ? `The Finalflash Set [${item.bundleOptions.joggerColor}/${item.bundleOptions.joggerSize} + ${item.bundleOptions.teeModel}]`
+          : item.product.title,
+        size: item.size,
+        color: item.color?.name || null,
+        quantity: item.quantity,
+        unitPrice: item.product.price
+      }))
+    };
+    setOrderNumber(localOrdNum);
+    const msg = buildWhatsAppMessage(localOrdNum) + '\n(تنبيه: تم إرسال هذا الطلب مباشرة عبر واتساب لتأكيده يدوياً مع المشرف)';
+    const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    onOrderSuccess(finalRecord);
+    setSent(true);
   }
 
   function copyOrderNumber() {
@@ -2343,8 +2132,31 @@ function CheckoutModal({
               </p>
 
               {orderError && (
-                <div role="alert" className="mt-4 flex items-center gap-2 border border-[#e1b8b2] bg-[#fff3f1] p-3 text-xs text-[#9b3f34]">
-                  <AlertCircle size={15} /> {orderError}
+                <div role="alert" className="mt-4 rounded border border-[#e1b8b2] bg-[#fff3f1] p-4 text-xs text-[#9b3f34]">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold">تنبيه في اتصال السيرفر:</p>
+                      <p className="mt-1 leading-5">{orderError}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-[#f7d6d1] pt-3">
+                    <button
+                      type="button"
+                      onClick={handleSendOrder}
+                      disabled={createOrder.isPending}
+                      className="rounded bg-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#7e3026]"
+                    >
+                      {createOrder.isPending ? 'جاري المحاولة...' : 'إعادة محاولة الحفظ السحابي'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDirectWhatsAppFallback}
+                      className="rounded border border-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-[#9b3f34] hover:bg-[#9b3f34] hover:text-white"
+                    >
+                      تأكيد يدوي فوري عبر واتساب
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -2821,6 +2633,8 @@ function Lightbox({
   onMove: (delta: number) => void;
 }) {
   const item = feedbacks[index];
+  useModalA11y(true, onClose);
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101d]/92 p-4 backdrop-blur-sm"

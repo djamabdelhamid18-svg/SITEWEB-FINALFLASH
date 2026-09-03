@@ -90,7 +90,7 @@ components:
           minimum: 0
     OrderInput:
       type: object
-      required: [customerName, phone, wilaya, deliveryMethod, subtotal, deliveryFee, total, items]
+      required: [customerName, phone, wilaya, commune, deliveryMethod, subtotal, deliveryFee, total, items]
       properties:
         customerName:
           type: string
@@ -104,6 +104,10 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+        commune:
+          type: string
+          minLength: 1
+          maxLength: 160
         deliveryMethod:
           type: string
           enum: [home, desk]

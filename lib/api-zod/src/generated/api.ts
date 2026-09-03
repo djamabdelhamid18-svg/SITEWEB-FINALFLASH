@@ -54,6 +54,7 @@ export const CreateOrderBody = zod.object({
   "customerName": zod.string().min(createOrderBodyCustomerNameMin).max(createOrderBodyCustomerNameMax),
   "phone": zod.string().min(createOrderBodyPhoneMin).max(createOrderBodyPhoneMax),
   "wilaya": zod.string().min(1).max(createOrderBodyWilayaMax),
+  "commune": zod.string().min(1).max(160),
   "deliveryMethod": zod.enum(['home', 'desk']),
   "subtotal": zod.number().min(createOrderBodySubtotalMin),
   "deliveryFee": zod.number().min(createOrderBodyDeliveryFeeMin),

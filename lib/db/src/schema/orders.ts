@@ -8,6 +8,7 @@ export const ordersTable = pgTable("orders", {
   customerName: text("customer_name").notNull(),
   phone: text("phone").notNull(),
   wilaya: text("wilaya").notNull(),
+  commune: text("commune").notNull().default(""),
   deliveryMethod: text("delivery_method").notNull(),
   subtotal: integer("subtotal").notNull(),
   deliveryFee: integer("delivery_fee").notNull(),

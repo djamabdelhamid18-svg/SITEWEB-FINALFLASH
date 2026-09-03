@@ -34,12 +34,37 @@ router.post("/orders", async (req, res): Promise<void> => {
     return;
   }
   const orderNumber = `FF-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+  // 1-of-1 piece stock collision defense (Carhartt Pants #2, Converse Vintage #3, Hard Rock #5)
+  const ONE_OF_ONE_PRODUCT_IDS = [2, 3, 5];
+  const requestedOneOfOnes = input.items.filter((it) => ONE_OF_ONE_PRODUCT_IDS.includes(it.productId));
+
+  if (requestedOneOfOnes.length > 0) {
+    for (const item of requestedOneOfOnes) {
+      const existingReservations = await db
+        .select({ id: orderItemsTable.id })
+        .from(orderItemsTable)
+        .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+        .where(eq(orderItemsTable.productId, item.productId));
+
+      if (existingReservations.length > 0) {
+        req.log.warn({ productId: item.productId, title: item.productTitle }, "Prevented double-order on 1-of-1 piece");
+        res.status(409).json({
+          error: `عذراً، قطعة "${item.productTitle}" هي قطعة وحيدة (1 of 1) وتم حجزها مسبقاً.`,
+          code: "ITEM_ALREADY_RESERVED",
+        });
+        return;
+      }
+    }
+  }
+
   const order = await db.transaction(async (tx) => {
     const [created] = await tx.insert(ordersTable).values({
       orderNumber,
       customerName: input.customerName.trim(),
       phone: normalizedPhone,
       wilaya: input.wilaya.trim(),
+      commune: input.commune.trim(),
       deliveryMethod: input.deliveryMethod,
       subtotal: input.subtotal,
       deliveryFee: input.deliveryFee,
@@ -69,7 +94,21 @@ router.post("/orders", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/orders", async (req, res): Promise<void> => {
+// Admin Authorization Middleware to prevent public scraping of customer personal data
+function adminAuthMiddleware(req: any, res: any, next: any): void {
+  const adminKey = req.headers["x-admin-key"] || req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
+  const expectedKey = process.env.ADMIN_KEY || "FINAL2026";
+  if (!adminKey || adminKey !== expectedKey) {
+    res.status(401).json({
+      error: "Unauthorized: Admin access key required to view or update customer orders.",
+      code: "UNAUTHORIZED_ADMIN_ACCESS",
+    });
+    return;
+  }
+  next();
+}
+
+router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
   try {
     const orders = await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
     const items = await db.select().from(orderItemsTable);
@@ -84,7 +123,7 @@ router.get("/orders", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/orders/:id/status", async (req, res): Promise<void> => {
+router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   const { status } = req.body;
   if (!id || typeof status !== "string") {
