@@ -29,6 +29,13 @@ export const orderItemsTable = pgTable("order_items", {
   unitPrice: integer("unit_price").notNull(),
 });
 
+export const inventoryReservationsTable = pgTable("inventory_reservations", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().unique(),
+  orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }).unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({
   id: true,
   createdAt: true,
@@ -41,3 +48,4 @@ export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof ordersTable.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type OrderItem = typeof orderItemsTable.$inferSelect;
+export type InventoryReservation = typeof inventoryReservationsTable.$inferSelect;

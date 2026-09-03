@@ -1,19 +1,57 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, ne } from "drizzle-orm";
-import { db, orderItemsTable, ordersTable } from "@workspace/db";
+import { db, inventoryReservationsTable, orderItemsTable, ordersTable } from "@workspace/db";
 import { CreateOrderBody, CreateOrderResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
 // Official Authoritative Product Catalog (Server Source of Truth)
-export const OFFICIAL_PRODUCT_CATALOG: Record<number, { price: number; isOneOfOne: boolean }> = {
-  1: { price: 2900, isOneOfOne: false }, // Baggy Jogger
-  2: { price: 2000, isOneOfOne: true },  // Thrifted Gymshark T-Shirt (1 of 1)
-  3: { price: 2400, isOneOfOne: true },  // Vintage Hard Rock Cafe Tee (1 of 1)
-  4: { price: 4300, isOneOfOne: false }, // The Finalflash Set (Bundle)
-  5: { price: 4500, isOneOfOne: true },  // Carhartt Vintage Baggy Pants (1 of 1)
-  6: { price: 5200, isOneOfOne: true },  // Converse All Star High 1990s (1 of 1)
+export const OFFICIAL_PRODUCT_CATALOG: Record<
+  number,
+  {
+    price: number;
+    isOneOfOne: boolean;
+    validSizes: string[];
+    validColors: string[];
+  }
+> = {
+  1: {
+    price: 2900,
+    isOneOfOne: false,
+    validSizes: ["M", "L", "XL"],
+    validColors: ["Black", "Grey", "أسود", "رمادي"],
+  }, // Baggy Jogger
+  2: {
+    price: 2000,
+    isOneOfOne: true,
+    validSizes: ["S"],
+    validColors: ["Onyx Black", "أسود"],
+  }, // Thrifted Gymshark T-Shirt (1 of 1)
+  3: {
+    price: 2400,
+    isOneOfOne: true,
+    validSizes: ["M"],
+    validColors: ["Navy Blue", "أزرق داكن"],
+  }, // Vintage Hard Rock Cafe Tee (1 of 1)
+  4: {
+    price: 4300,
+    isOneOfOne: false,
+    validSizes: ["Set Customizer", "M", "L", "XL"],
+    validColors: ["Black Set", "Grey Set", "أسود", "رمادي"],
+  }, // The Finalflash Set (Bundle)
+  5: {
+    price: 4500,
+    isOneOfOne: true,
+    validSizes: ["W32-34"],
+    validColors: ["Duck Brown", "بني"],
+  }, // Carhartt Vintage Baggy Pants (1 of 1)
+  6: {
+    price: 5200,
+    isOneOfOne: true,
+    validSizes: ["EU 42", "42"],
+    validColors: ["Optical White", "أبيض"],
+  }, // Converse All Star High 1990s (1 of 1)
 };
 
 // Official Authoritative Delivery Fee Matrix for 58 Algerian Wilayas
@@ -53,17 +91,19 @@ export function calculateAuthoritativeDeliveryFee(wilaya: string, method: "home"
     "58 - El Meniaa", "58 - المنيعة", "58"
   ];
 
-  if (alger.some(w => wilaya.includes(w))) {
+  if (alger.some((w) => wilaya.includes(w))) {
     return method === "home" ? 400 : 250;
   }
-  if (centerNorth.some(w => wilaya.includes(w))) {
+  if (centerNorth.some((w) => wilaya.includes(w))) {
     return method === "home" ? 600 : 400;
   }
-  if (southBig.some(w => wilaya.includes(w))) {
+  if (southBig.some((w) => wilaya.includes(w))) {
     return method === "home" ? 950 : 650;
   }
   return method === "home" ? 700 : 450;
 }
+
+export const VALID_ORDER_STATUSES = ["new", "confirmed", "shipped", "delivered", "cancelled"] as const;
 
 router.post("/orders", async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
@@ -81,7 +121,7 @@ router.post("/orders", async (req, res): Promise<void> => {
     return;
   }
 
-  // 1. Server-Authoritative Price & Fee Verification (Defending against client price tampering)
+  // 1. Server-Authoritative Price & Attribute Verification
   for (const item of input.items) {
     const catalogItem = OFFICIAL_PRODUCT_CATALOG[item.productId];
     if (!catalogItem) {
@@ -128,27 +168,21 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const orderNumber = `FF-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-  // 2. Atomic 1-of-1 Inventory Reservation inside Transaction (Preventing Race Conditions)
+  // 2. Atomic 1-of-1 Inventory Reservation with Database Unique Constraint
   try {
     const order = await db.transaction(async (tx) => {
-      // Check 1-of-1 pieces atomically inside transaction
       const requestedOneOfOnes = input.items.filter(
         (it) => OFFICIAL_PRODUCT_CATALOG[it.productId]?.isOneOfOne
       );
 
+      // Explicit check for existing active reservations before insert
       for (const item of requestedOneOfOnes) {
-        const existingActiveReservations = await tx
-          .select({ id: orderItemsTable.id })
-          .from(orderItemsTable)
-          .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
-          .where(
-            and(
-              eq(orderItemsTable.productId, item.productId),
-              ne(ordersTable.status, "cancelled")
-            )
-          );
+        const existing = await tx
+          .select({ id: inventoryReservationsTable.id })
+          .from(inventoryReservationsTable)
+          .where(eq(inventoryReservationsTable.productId, item.productId));
 
-        if (existingActiveReservations.length > 0) {
+        if (existing.length > 0) {
           throw new Error(`ITEM_ALREADY_RESERVED:${item.productTitle}`);
         }
       }
@@ -176,6 +210,14 @@ router.post("/orders", async (req, res): Promise<void> => {
         unitPrice: OFFICIAL_PRODUCT_CATALOG[item.productId].price,
       })));
 
+      // Atomically insert reservations into the dedicated table with UNIQUE constraint
+      for (const item of requestedOneOfOnes) {
+        await tx.insert(inventoryReservationsTable).values({
+          productId: item.productId,
+          orderId: created.id,
+        });
+      }
+
       return created;
     });
 
@@ -187,9 +229,16 @@ router.post("/orders", async (req, res): Promise<void> => {
       createdAt: order.createdAt,
     }));
   } catch (err: any) {
-    if (err?.message?.startsWith("ITEM_ALREADY_RESERVED:")) {
-      const pieceTitle = err.message.replace("ITEM_ALREADY_RESERVED:", "");
-      req.log.warn({ pieceTitle }, "Atomic inventory conflict prevented");
+    const isUniqueViolation =
+      err?.code === "23505" ||
+      err?.message?.includes("inventory_reservations_product_id_unique") ||
+      err?.message?.startsWith("ITEM_ALREADY_RESERVED:");
+
+    if (isUniqueViolation) {
+      const pieceTitle = err?.message?.startsWith("ITEM_ALREADY_RESERVED:")
+        ? err.message.replace("ITEM_ALREADY_RESERVED:", "")
+        : "القطعة النادرة";
+      req.log.warn({ pieceTitle }, "Atomic inventory conflict prevented by unique constraint");
       res.status(409).json({
         error: `عذراً، قطعة "${pieceTitle}" هي قطعة وحيدة (1 of 1) وتم حجزها للتو من زبون آخر.`,
         code: "ITEM_ALREADY_RESERVED",
@@ -245,16 +294,27 @@ router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
 router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   const { status } = req.body;
-  if (!id || typeof status !== "string") {
-    res.status(400).json({ error: "Invalid status update" });
+  if (!id || typeof status !== "string" || !VALID_ORDER_STATUSES.includes(status as any)) {
+    res.status(400).json({
+      error: `Invalid status. Allowed statuses are: ${VALID_ORDER_STATUSES.join(", ")}`,
+      code: "INVALID_STATUS_VALUE",
+    });
     return;
   }
+
   try {
     const [updated] = await db
       .update(ordersTable)
       .set({ status })
       .where(eq(ordersTable.id, id))
       .returning();
+
+    // If order is cancelled, immediately delete its inventory reservation to liberate the 1-of-1 piece
+    if (status === "cancelled") {
+      await db.delete(inventoryReservationsTable).where(eq(inventoryReservationsTable.orderId, id));
+      req.log.info({ orderId: id }, "Liberated 1-of-1 inventory reservations for cancelled order");
+    }
+
     res.json(updated);
   } catch (err) {
     req.log.warn({ err }, "Failed to update order status");
