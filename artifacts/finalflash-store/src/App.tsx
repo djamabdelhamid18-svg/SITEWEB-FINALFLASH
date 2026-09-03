@@ -1951,7 +1951,10 @@ function CheckoutModal({
       if (whatsappWindow) {
         whatsappWindow.close();
       }
-      const apiMsg = err?.response?.data?.error || err?.message || 'تعذر الاتصال بقاعدة البيانات لحفظ الطلب تلقائياً.';
+      let apiMsg = 'تعذر الاتصال بقاعدة البيانات السحابية لحفظ الطلب آلياً (السيرفر غير متصل محلياً). يمكنك إرسال الطلب مباشرة الآن عبر زر "تأكيد يدوي فوري عبر واتساب".';
+      if (err?.response?.data?.error) {
+        apiMsg = err.response.data.error;
+      }
       setOrderError(apiMsg);
     }
   }
