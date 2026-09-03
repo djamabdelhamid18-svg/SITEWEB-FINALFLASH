@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: orders
+    description: Store order operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a store order
+      description: Persists a cash-on-delivery order before the customer is sent to WhatsApp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +60,89 @@ components:
           type: string
       required:
         - status
+    OrderItemInput:
+      type: object
+      required: [productId, productTitle, size, quantity, unitPrice]
+      properties:
+        productId:
+          type: number
+          format: int32
+          minimum: 1
+        productTitle:
+          type: string
+          minLength: 1
+          maxLength: 160
+        size:
+          type: string
+          minLength: 1
+          maxLength: 30
+        color:
+          type: ["string", "null"]
+          maxLength: 80
+        quantity:
+          type: number
+          format: int32
+          minimum: 1
+          maximum: 20
+        unitPrice:
+          type: number
+          format: int32
+          minimum: 0
+    OrderInput:
+      type: object
+      required: [customerName, phone, wilaya, deliveryMethod, subtotal, deliveryFee, total, items]
+      properties:
+        customerName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        phone:
+          type: string
+          minLength: 8
+          maxLength: 30
+        wilaya:
+          type: string
+          minLength: 1
+          maxLength: 120
+        deliveryMethod:
+          type: string
+          enum: [home, desk]
+        subtotal:
+          type: number
+          format: int32
+          minimum: 0
+        deliveryFee:
+          type: number
+          format: int32
+          minimum: 0
+        total:
+          type: number
+          format: int32
+          minimum: 0
+        items:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OrderItemInput"
+    Order:
+      type: object
+      required: [id, orderNumber, status, createdAt]
+      properties:
+        id:
+          type: number
+          format: int32
+        orderNumber:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
 
