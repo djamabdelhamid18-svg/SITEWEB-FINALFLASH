@@ -42,12 +42,35 @@ app.use(
   }),
 );
 
-// 4. CORS Configuration
+// 4. Strict CORS Whitelist Configuration
+const allowedOrigins = [
+  "https://finalflash.dz",
+  "https://www.finalflash.dz",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+if (process.env["CORS_ALLOWED_ORIGINS"]) {
+  const extraOrigins = process.env["CORS_ALLOWED_ORIGINS"]
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  allowedOrigins.push(...extraOrigins);
+}
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (such as mobile apps, curl, or server-side calls)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS policy violation: Unauthorized origin"));
+    },
     methods: ["GET", "POST", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Admin-Key"],
     credentials: true,
   }),
 );
