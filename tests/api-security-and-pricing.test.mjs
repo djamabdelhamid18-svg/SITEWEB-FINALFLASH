@@ -19,6 +19,12 @@ import {
   AtomicReservationSimulator,
 } from "../artifacts/api-server/src/business-logic.ts";
 
+import {
+  escapeHtml,
+  formatTelegramOrderMessage,
+  sendTelegramOrderNotification,
+} from "../artifacts/api-server/src/services/telegram.ts";
+
 // ─── 1. Wilaya Number Extraction ─────────────────────────────────────────────
 
 test("extractWilayaNumber: extracts wilaya code from START of string only", async (t) => {
@@ -291,3 +297,90 @@ test("Concurrency: Two buyers simultaneously ordering the same 1-of-1 piece", as
     assert.equal(secondResult.orderId, 302);
   });
 });
+
+// ─── 8. Telegram Bot Notification Service ─────────────────────────────────────
+
+test("Telegram Bot Notifications", async (t) => {
+  await t.test("escapeHtml prevents HTML injection in order notifications", () => {
+    assert.equal(escapeHtml("Tom & Jerry"), "Tom &amp; Jerry");
+    assert.equal(escapeHtml("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;");
+    assert.equal(escapeHtml('"Finalflash"'), "&quot;Finalflash&quot;");
+  });
+
+  await t.test("formatTelegramOrderMessage generates rich notification with 1-click WhatsApp link", () => {
+    const mockOrder = {
+      orderNumber: "FF-2026-TEST1234",
+      customerName: "أمين بلحاج",
+      phone: "0555123456",
+      wilaya: "16 - Alger",
+      commune: "Kouba",
+      deliveryMethod: "home",
+      subtotal: 7400,
+      deliveryFee: 400,
+      total: 7800,
+      items: [
+        {
+          productTitle: "Baggy Jogger",
+          size: "L",
+          color: "أسود",
+          quantity: 1,
+          unitPrice: 2900,
+        },
+        {
+          productTitle: "Carhartt Vintage Baggy Pants",
+          size: "W32-34",
+          color: "بني",
+          quantity: 1,
+          unitPrice: 4500,
+        },
+      ],
+    };
+
+    const msg = formatTelegramOrderMessage(mockOrder);
+
+    // Assert key notification contents
+    assert.ok(msg.includes("FF-2026-TEST1234"), "Must include order number");
+    assert.ok(msg.includes("أمين بلحاج"), "Must include customer name");
+    assert.ok(msg.includes("0555123456"), "Must include customer phone");
+    assert.ok(msg.includes("7800 DA"), "Must include total amount");
+    assert.ok(msg.includes("Baggy Jogger"), "Must include first item");
+    assert.ok(msg.includes("Carhartt Vintage Baggy Pants"), "Must include second item");
+
+    // Assert 1-click WhatsApp contact URL conversion (0555123456 -> 213555123456)
+    assert.ok(
+      msg.includes('href="https://wa.me/213555123456"'),
+      "Must generate direct wa.me link with Algerian international format"
+    );
+  });
+
+  await t.test("sendTelegramOrderNotification fails gracefully without crashing when unconfigured", async () => {
+    // Delete env vars to test fallback
+    const origToken = process.env.TELEGRAM_BOT_TOKEN;
+    const origChat = process.env.TELEGRAM_CHAT_ID;
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.TELEGRAM_CHAT_ID;
+
+    try {
+      const mockOrder = {
+        orderNumber: "FF-2026-FALLBACK",
+        customerName: "Testing Fallback",
+        phone: "0666000000",
+        wilaya: "31 - Oran",
+        commune: "Es Senia",
+        deliveryMethod: "desk",
+        subtotal: 2000,
+        deliveryFee: 400,
+        total: 2400,
+        items: [],
+      };
+
+      // Must return false without throwing an error
+      const sent = await sendTelegramOrderNotification(mockOrder);
+      assert.equal(sent, false, "Must return false and not throw when unconfigured");
+    } finally {
+      if (origToken) process.env.TELEGRAM_BOT_TOKEN = origToken;
+      if (origChat) process.env.TELEGRAM_CHAT_ID = origChat;
+    }
+  });
+});
+

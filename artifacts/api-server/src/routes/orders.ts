@@ -10,6 +10,7 @@ import {
   VALID_ORDER_STATUSES,
   verifyAtomicReservationClaim,
 } from "../business-logic";
+import { sendTelegramOrderNotification } from "../services/telegram";
 
 const router: IRouter = Router();
 
@@ -189,6 +190,31 @@ router.post("/orders", async (req, res): Promise<void> => {
       status: order.status,
       createdAt: order.createdAt,
     }));
+
+    // Non-blocking Telegram alert for store management (fire & forget)
+    sendTelegramOrderNotification(
+      {
+        orderNumber: order.orderNumber,
+        customerName: input.customerName.trim(),
+        phone: normalizedPhone,
+        wilaya: input.wilaya.trim(),
+        commune: input.commune.trim(),
+        deliveryMethod: input.deliveryMethod,
+        subtotal: calculatedSubtotal,
+        deliveryFee: calculatedDeliveryFee,
+        total: calculatedTotal,
+        items: input.items.map((it) => ({
+          productTitle: it.productTitle,
+          size: it.size,
+          color: it.color,
+          quantity: it.quantity,
+          unitPrice: OFFICIAL_PRODUCT_CATALOG[it.productId].price,
+        })),
+      },
+      req.log
+    ).catch((err) => {
+      req.log.error({ err }, "Unhandled error while dispatching Telegram notification");
+    });
   } catch (err: any) {
     const isUniqueViolation =
       err?.code === "23505" ||
