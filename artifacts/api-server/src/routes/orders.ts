@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
-import { db, inventoryReservationsTable, orderAuditLogsTable, orderItemsTable, ordersTable } from "@workspace/db";
+import { db, inventoryReservationsTable, orderAuditLogsTable, orderItemsTable, ordersTable, productsTable } from "@workspace/db";
 import { CreateOrderBody, CreateOrderResponse } from "@workspace/api-zod";
 import {
   OFFICIAL_PRODUCT_CATALOG,
@@ -11,6 +11,7 @@ import {
   verifyAtomicReservationClaim,
 } from "../business-logic";
 import { sendTelegramOrderNotification } from "../services/telegram";
+import { adminAuthMiddleware } from "../middlewares/admin-auth";
 
 const router: IRouter = Router();
 
@@ -30,14 +31,37 @@ router.post("/orders", async (req, res): Promise<void> => {
     return;
   }
 
-  // 1. Server-Authoritative Price, Attribute & Quantity Verification
+  // 1. Server-Authoritative Price, Attribute & Quantity Verification (Static + DB Products)
+  const catalogMap: Record<
+    number,
+    { price: number; isOneOfOne: boolean; validSizes: readonly string[]; validColors: readonly string[]; title: string }
+  > = {};
+
   for (const item of input.items) {
-    const catalogItem = OFFICIAL_PRODUCT_CATALOG[item.productId];
+    let catalogItem: any = OFFICIAL_PRODUCT_CATALOG[item.productId];
+    if (!catalogItem) {
+      try {
+        const [dbProd] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
+        if (dbProd) {
+          catalogItem = {
+            price: dbProd.price,
+            isOneOfOne: dbProd.isOneOfOne,
+            validSizes: (dbProd.sizes as string[]) || ["Free Size"],
+            validColors: ((dbProd.colors as any[]) || []).map((c: any) => c.name || c),
+            title: dbProd.title,
+          };
+        }
+      } catch {}
+    }
+
     if (!catalogItem) {
       req.log.warn({ productId: item.productId }, "Rejected order with unknown product ID");
       res.status(400).json({ error: `Unknown product ID: ${item.productId}` });
       return;
     }
+
+    catalogMap[item.productId] = catalogItem;
+
     if (item.unitPrice !== catalogItem.price) {
       req.log.warn(
         { productId: item.productId, submittedPrice: item.unitPrice, catalogPrice: catalogItem.price },
@@ -78,7 +102,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   const calculatedSubtotal = input.items.reduce(
-    (sum, item) => sum + OFFICIAL_PRODUCT_CATALOG[item.productId].price * item.quantity,
+    (sum, item) => sum + catalogMap[item.productId].price * item.quantity,
     0
   );
   const calculatedDeliveryFee = calculateAuthoritativeDeliveryFee(input.wilaya, input.deliveryMethod);
@@ -108,7 +132,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   try {
     const order = await db.transaction(async (tx) => {
       const requestedOneOfOnes = input.items.filter(
-        (it) => OFFICIAL_PRODUCT_CATALOG[it.productId]?.isOneOfOne
+        (it) => catalogMap[it.productId]?.isOneOfOne
       );
 
       // Check for existing *non-expired* active reservations via raw SQL
@@ -142,7 +166,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         size: item.size.trim(),
         color: item.color?.trim() || null,
         quantity: item.quantity,
-        unitPrice: OFFICIAL_PRODUCT_CATALOG[item.productId].price,
+        unitPrice: catalogMap[item.productId].price,
       })));
 
       // Insert reservations with 60-minute TTL expiry
@@ -208,7 +232,7 @@ router.post("/orders", async (req, res): Promise<void> => {
           size: it.size,
           color: it.color,
           quantity: it.quantity,
-          unitPrice: OFFICIAL_PRODUCT_CATALOG[it.productId].price,
+          unitPrice: catalogMap[it.productId].price,
         })),
       },
       req.log
@@ -238,30 +262,6 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 });
 
-// Admin Authorization Middleware (Strict Environment Variable Enforcement - No Hardcoded Fallback)
-function adminAuthMiddleware(req: any, res: any, next: any): void {
-  const configuredAdminKey = process.env.ADMIN_KEY;
-  if (!configuredAdminKey) {
-    req.log.error("Security alert: ADMIN_KEY environment variable is not configured. Blocking admin endpoint.");
-    res.status(500).json({
-      error: "Server configuration error: Admin authentication key is not configured in environment.",
-      code: "ADMIN_AUTH_NOT_CONFIGURED",
-    });
-    return;
-  }
-
-  const providedKey = req.headers["x-admin-key"] || req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
-  if (!providedKey || providedKey !== configuredAdminKey) {
-    req.log.warn("Unauthorized attempt to access admin orders endpoint");
-    res.status(401).json({
-      error: "Unauthorized: Valid admin access key required to view customer orders.",
-      code: "UNAUTHORIZED_ADMIN_ACCESS",
-    });
-    return;
-  }
-
-  next();
-}
 
 router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
   try {
@@ -318,7 +318,7 @@ router.get("/orders", adminAuthMiddleware, async (req, res): Promise<void> => {
 });
 
 router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   const { status, notes } = req.body;
   if (!id || typeof status !== "string" || !VALID_ORDER_STATUSES.includes(status as any)) {
     res.status(400).json({
@@ -366,7 +366,7 @@ router.patch("/orders/:id/status", adminAuthMiddleware, async (req, res): Promis
 });
 
 router.get("/orders/:id/audit-logs", adminAuthMiddleware, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (!id) {
     res.status(400).json({ error: "Invalid order ID" });
     return;

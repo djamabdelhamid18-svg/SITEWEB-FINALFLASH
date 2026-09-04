@@ -123,6 +123,31 @@ function App() {
   const [bundleTeeSize, setBundleTeeSize] = useState('S');
 
   const [notice, setNotice] = useState('');
+  const [storeProducts, setStoreProducts] = useState<Product[]>(products);
+
+  // Sync real-time catalog & live reservation status from /api/products
+  useEffect(() => {
+    let mounted = true;
+    async function loadLiveProducts() {
+      try {
+        const res = await fetch('/api/products');
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted && Array.isArray(data) && data.length > 0) {
+            setStoreProducts(data);
+          }
+        }
+      } catch {
+        // Keeps fallback products silently if API is offline
+      }
+    }
+    loadLiveProducts();
+    const interval = setInterval(loadLiveProducts, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => writeStored('finalflash_wishlist', favorites), [favorites]);
   useEffect(() => writeStored('finalflash_cart', cart), [cart]);
@@ -163,7 +188,7 @@ function App() {
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    const list = products.filter(
+    const list = storeProducts.filter(
       p =>
         (category === 'all' || p.category === category) &&
         (!stockOnly || p.inStock) &&
@@ -172,7 +197,7 @@ function App() {
     return [...list].sort((a, b) =>
       sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : a.id - b.id
     );
-  }, [category, query, sort, stockOnly]);
+  }, [category, query, sort, stockOnly, storeProducts]);
 
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
   const subtotal = cart.reduce((n, item) => n + item.product.price * item.quantity, 0);
@@ -193,7 +218,7 @@ function App() {
     setFavorites(prev => {
       const exists = prev.includes(id);
       const updated = exists ? prev.filter(x => x !== id) : [...prev, id];
-      const prod = products.find(p => p.id === id);
+      const prod = storeProducts.find(p => p.id === id);
       setNotice(exists ? `Removed ${prod?.title || 'piece'} from favorites` : `Added ${prod?.title || 'piece'} to favorites`);
       return updated;
     });
@@ -620,7 +645,7 @@ function App() {
 
             <div className="mb-5 flex items-center justify-between text-[10px] uppercase tracking-[.14em] text-[#8e8695]">
               <span>
-                {filtered.length} of {products.length} pieces
+                {filtered.length} of {storeProducts.length} pieces
               </span>
               {(query || category !== 'all' || stockOnly) && (
                 <button onClick={resetFilters} className="text-[#7c3fb4] underline underline-offset-2" data-testid="button-reset-filters">
@@ -1135,6 +1160,8 @@ function ProductCard({
   onAdd: () => void;
   delay: number;
 }) {
+  const isUnavailable = !product.inStock || Boolean((product as any).isReserved);
+
   return (
     <article dir="ltr" className="group reveal" style={{ animationDelay: `${delay}ms` }} data-testid={`card-product-${product.id}`}>
       <div className="product-art relative aspect-[.78] cursor-pointer overflow-hidden bg-[#2a2033]" onClick={onOpen}>
@@ -1144,11 +1171,24 @@ function ProductCard({
           className="h-full w-full object-cover"
           fallbackLabel={product.category === 'bundle' ? 'THE SET' : 'FINALFLASH'}
         />
+        {isUnavailable && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#1c1422]/30 backdrop-blur-[1px]">
+            <span className="border border-[#e1b8b2] bg-[#1c1422]/90 px-3 py-1 text-[10px] font-bold tracking-widest text-[#f5c6cb] uppercase">
+              {(product as any).isReserved ? 'محجوزة مؤقتاً' : 'نفذت الكمية'}
+            </span>
+          </div>
+        )}
         <div className="absolute left-3 top-3 flex flex-col gap-1">
-          <span className="w-max bg-[#241a30] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#eadcf2]">
-            {product.badge}
-          </span>
-          {product.stockCount <= 2 && (
+          {isUnavailable ? (
+            <span className="w-max bg-[#8c2b2b] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-white">
+              {(product as any).isReserved ? 'محجوزة / SOLD OUT' : 'SOLD OUT'}
+            </span>
+          ) : (
+            <span className="w-max bg-[#241a30] px-2 py-1 text-[9px] font-bold tracking-[.12em] text-[#eadcf2]">
+              {product.badge}
+            </span>
+          )}
+          {!isUnavailable && product.stockCount <= 2 && (
             <span className="w-max bg-[#b35d4f] px-2 py-1 text-[9px] font-bold text-white">
               Only {product.stockCount} left
             </span>
@@ -1194,7 +1234,8 @@ function ProductCard({
           </div>
           <button
             onClick={onAdd}
-            className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d4cadb] text-[#7c3fb4] transition-colors hover:border-[#7c3fb4] hover:bg-[#7c3fb4] hover:text-white"
+            disabled={isUnavailable}
+            className="flex h-8 w-8 shrink-0 items-center justify-center border border-[#d4cadb] text-[#7c3fb4] transition-colors hover:border-[#7c3fb4] hover:bg-[#7c3fb4] hover:text-white disabled:cursor-not-allowed disabled:border-[#e3dde7] disabled:text-[#baaebf] disabled:hover:bg-transparent"
             aria-label={`Add ${product.title} to bag`}
             data-testid={`button-add-product-${product.id}`}
           >
@@ -1562,12 +1603,26 @@ function QuickView({
           {/* Add to Bag CTA */}
           <button
             onClick={onAdd}
-            disabled={!product.inStock}
-            className="mt-6 flex w-full items-center justify-center gap-2 bg-[#241c2c] py-4 text-xs font-bold text-white transition-colors hover:bg-[#7c3fb4] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!product.inStock || Boolean((product as any).isReserved)}
+            className="mt-6 flex w-full items-center justify-center gap-2 bg-[#241c2c] py-4 text-xs font-bold text-white transition-colors hover:bg-[#7c3fb4] disabled:cursor-not-allowed disabled:bg-[#4a3d4f] disabled:opacity-75"
             data-testid="button-quickview-add"
           >
-            <ShoppingBag size={15} /> Add to bag / أضف إلى السلة
+            {(product as any).isReserved ? (
+              <span>محجوزة لزبون آخر مؤقتاً (SOLD OUT)</span>
+            ) : !product.inStock ? (
+              <span>نفذت الكمية (Sold Out)</span>
+            ) : (
+              <>
+                <ShoppingBag size={15} /> Add to bag / أضف إلى السلة
+              </>
+            )}
           </button>
+
+          {Boolean((product as any).isReserved) && (
+            <p className="arabic mt-2 text-center text-[11px] text-[#b34033]">
+              هذه القطعة النادرة محجوزة لزبون آخر حالياً. يتحرر الحجز تلقائياً إذا لم يتم تأكيد الطلب خلال 60 دقيقة.
+            </p>
+          )}
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[10px] text-[#8a808f]">
             <Eye size={12} className="text-[#7c3fb4]" /> معاينة قبل الدفع — الدفع عند الاستلام نقداً
