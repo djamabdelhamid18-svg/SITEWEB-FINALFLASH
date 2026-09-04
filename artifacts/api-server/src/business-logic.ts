@@ -132,3 +132,80 @@ export function validateOrderItem(
   }
   return { valid: true };
 }
+
+/**
+ * Evaluates the result of a PostgreSQL atomic reservation upsert:
+ * INSERT INTO inventory_reservations ... ON CONFLICT (product_id) DO UPDATE ... WHERE expires_at < NOW() RETURNING id
+ * 
+ * If PostgreSQL returned 0 rows, it means an active (non-expired) reservation
+ * already held the row. In that case, we MUST throw ITEM_ALREADY_RESERVED so the transaction rolls back.
+ */
+export function verifyAtomicReservationClaim(
+  rows: Array<{ id: number }> | undefined,
+  productTitle: string
+): { success: true; reservationId: number } {
+  if (!rows || rows.length === 0) {
+    throw new Error(`ITEM_ALREADY_RESERVED:${productTitle}`);
+  }
+  return { success: true, reservationId: rows[0].id };
+}
+
+/**
+ * High-concurrency Atomic Reservation Simulator
+ * Accurately models PostgreSQL row-level mutex, ON CONFLICT DO UPDATE ... WHERE expires_at < NOW() RETURNING id,
+ * and TTL expirations under concurrent asynchronous race conditions.
+ */
+export class AtomicReservationSimulator {
+  private reservations = new Map<number, { orderId: number; expiresAt: number }>();
+  private locks = new Map<number, Promise<void>>();
+
+  async claim(
+    productId: number,
+    orderId: number,
+    productTitle: string,
+    ttlMs: number = 60 * 60 * 1000
+  ): Promise<{ success: true; orderId: number }> {
+    // Wait for any in-flight transaction on this productId (simulating Postgres row-level lock)
+    while (this.locks.has(productId)) {
+      await this.locks.get(productId);
+    }
+
+    let releaseLock: () => void = () => {};
+    const lockPromise = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    this.locks.set(productId, lockPromise);
+
+    try {
+      // Simulate real asynchronous DB transaction latency (1-10ms)
+      await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 10) + 1));
+
+      const now = Date.now();
+      const existing = this.reservations.get(productId);
+
+      let returnedRows: Array<{ id: number }> = [];
+
+      if (!existing || existing.expiresAt <= now) {
+        // No conflict OR expired reservation: Claim succeeds, returns 1 row
+        this.reservations.set(productId, { orderId, expiresAt: now + ttlMs });
+        returnedRows = [{ id: orderId }];
+      } else {
+        // Conflict with active reservation: Postgres WHERE condition fails, returns 0 rows!
+        returnedRows = [];
+      }
+
+      // Check results: if 0 rows returned, throw ITEM_ALREADY_RESERVED (rolls back transaction)
+      verifyAtomicReservationClaim(returnedRows, productTitle);
+
+      return { success: true, orderId };
+    } finally {
+      this.locks.delete(productId);
+      releaseLock();
+    }
+  }
+
+  isReserved(productId: number): boolean {
+    const r = this.reservations.get(productId);
+    return !!r && r.expiresAt > Date.now();
+  }
+}

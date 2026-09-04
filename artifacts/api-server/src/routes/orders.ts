@@ -8,6 +8,7 @@ import {
   calculateAuthoritativeDeliveryFee,
   validateOrderItem,
   VALID_ORDER_STATUSES,
+  verifyAtomicReservationClaim,
 } from "../business-logic";
 
 const router: IRouter = Router();
@@ -144,13 +145,29 @@ router.post("/orders", async (req, res): Promise<void> => {
       })));
 
       // Insert reservations with 60-minute TTL expiry
+      // CRITICAL CONCURRENCY FIX:
+      // DO NOT use plain "ON CONFLICT DO NOTHING" because if a concurrent order races,
+      // Postgres will silently ignore the insert, returning 0 rows, which would allow the 2nd
+      // order to commit without holding a reservation!
+      // We use ON CONFLICT (product_id) DO UPDATE ... WHERE expires_at < NOW() RETURNING id
+      // If the row is currently held by an active non-expired reservation, 0 rows are returned.
+      // verifyAtomicReservationClaim then immediately throws ITEM_ALREADY_RESERVED, aborting
+      // and rolling back this entire transaction cleanly!
       const reservationExpiry = new Date(Date.now() + 60 * 60 * 1000);
       for (const item of requestedOneOfOnes) {
-        await tx.execute(
+        const reservationResult = await tx.execute(
           sql`INSERT INTO inventory_reservations (product_id, order_id, expires_at)
               VALUES (${item.productId}, ${created.id}, ${reservationExpiry})
-              ON CONFLICT (product_id) DO NOTHING`
+              ON CONFLICT (product_id)
+              DO UPDATE SET
+                order_id = EXCLUDED.order_id,
+                expires_at = EXCLUDED.expires_at,
+                created_at = NOW()
+              WHERE inventory_reservations.expires_at < NOW()
+              RETURNING id`
         );
+
+        verifyAtomicReservationClaim((reservationResult as any).rows, item.productTitle);
       }
 
       // Record audit log entry for order creation

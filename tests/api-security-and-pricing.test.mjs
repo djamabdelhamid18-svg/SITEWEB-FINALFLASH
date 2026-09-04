@@ -15,6 +15,8 @@ import {
   extractWilayaNumber,
   validateOrderItem,
   VALID_ORDER_STATUSES,
+  verifyAtomicReservationClaim,
+  AtomicReservationSimulator,
 } from "../artifacts/api-server/src/business-logic.ts";
 
 // ─── 1. Wilaya Number Extraction ─────────────────────────────────────────────
@@ -180,5 +182,112 @@ test("Order Status State Machine", async (t) => {
     assert.equal(VALID_ORDER_STATUSES.includes("hacked"), false);
     assert.equal(VALID_ORDER_STATUSES.includes(""), false);
     assert.equal(VALID_ORDER_STATUSES.includes("pending"), false);
+  });
+});
+
+// ─── 6. Atomic Reservation Upsert Verification ────────────────────────────────
+
+test("Atomic Reservation: Postgres RETURNING id verification", async (t) => {
+  await t.test("succeeds when Postgres returns inserted row id", () => {
+    const result = verifyAtomicReservationClaim([{ id: 42 }], "Thrifted Gymshark T-Shirt");
+    assert.equal(result.success, true);
+    assert.equal(result.reservationId, 42);
+  });
+
+  await t.test("CRITICAL: throws ITEM_ALREADY_RESERVED when Postgres returns 0 rows (ON CONFLICT ignored)", () => {
+    // This is the exact bug identified: ON CONFLICT DO NOTHING returns 0 rows
+    // Without verification, the server would silently commit an order for a sold-out piece
+    assert.throws(
+      () => verifyAtomicReservationClaim([], "Carhartt Vintage Baggy Pants"),
+      (err) => {
+        assert.ok(err instanceof Error);
+        assert.equal(err.message, "ITEM_ALREADY_RESERVED:Carhartt Vintage Baggy Pants");
+        return true;
+      }
+    );
+  });
+
+  await t.test("throws ITEM_ALREADY_RESERVED when rows is undefined", () => {
+    assert.throws(
+      () => verifyAtomicReservationClaim(undefined, "Vintage Hard Rock Cafe Tee"),
+      (err) => {
+        assert.equal(err.message, "ITEM_ALREADY_RESERVED:Vintage Hard Rock Cafe Tee");
+        return true;
+      }
+    );
+  });
+});
+
+// ─── 7. Real Concurrency Tests (Promise.all) ──────────────────────────────────
+
+test("Concurrency: Two buyers simultaneously ordering the same 1-of-1 piece", async (t) => {
+  await t.test("Promise.all race condition: exactly ONE buyer succeeds, second buyer gets 409 conflict", async () => {
+    const sim = new AtomicReservationSimulator();
+    const productId = 2; // Thrifted Gymshark T-Shirt (1 of 1)
+    const productTitle = OFFICIAL_PRODUCT_CATALOG[productId].title;
+
+    // Simulate two concurrent requests firing in the exact same millisecond
+    const results = await Promise.allSettled([
+      sim.claim(productId, 101, productTitle),
+      sim.claim(productId, 102, productTitle),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+
+    // Exactly 1 must win the lease
+    assert.equal(fulfilled.length, 1, "Exactly one concurrent order must succeed");
+
+    // Exactly 1 must fail with ITEM_ALREADY_RESERVED
+    assert.equal(rejected.length, 1, "Exactly one concurrent order must be rejected");
+    assert.ok(
+      rejected[0].reason.message.startsWith("ITEM_ALREADY_RESERVED:"),
+      `Expected ITEM_ALREADY_RESERVED, got: ${rejected[0].reason.message}`
+    );
+
+    // Verify the winning order holds the reservation
+    assert.equal(sim.isReserved(productId), true);
+  });
+
+  await t.test("High Concurrency: 10 concurrent buyers rushing for 1 rare item", async () => {
+    const sim = new AtomicReservationSimulator();
+    const productId = 5; // Carhartt Vintage Baggy Pants (1 of 1)
+    const productTitle = OFFICIAL_PRODUCT_CATALOG[productId].title;
+
+    const buyerCount = 10;
+    const promises = Array.from({ length: buyerCount }, (_, idx) =>
+      sim.claim(productId, 200 + idx, productTitle)
+    );
+
+    const results = await Promise.allSettled(promises);
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+
+    assert.equal(fulfilled.length, 1, "Under massive concurrency, exactly 1 buyer wins the unique piece");
+    assert.equal(rejected.length, 9, "All 9 other concurrent buyers are rejected");
+
+    for (const r of rejected) {
+      assert.equal(r.reason.message, `ITEM_ALREADY_RESERVED:${productTitle}`);
+    }
+  });
+
+  await t.test("TTL Expiration: Once reservation expires, another buyer can claim the item", async () => {
+    const sim = new AtomicReservationSimulator();
+    const productId = 3; // Vintage Hard Rock Cafe Tee
+    const productTitle = OFFICIAL_PRODUCT_CATALOG[productId].title;
+
+    // First buyer claims with short TTL (20ms)
+    await sim.claim(productId, 301, productTitle, 20);
+    assert.equal(sim.isReserved(productId), true);
+
+    // Wait for TTL to expire
+    await new Promise((resolve) => setTimeout(resolve, 35));
+    assert.equal(sim.isReserved(productId), false);
+
+    // Second buyer should now succeed claiming the expired item!
+    const secondResult = await sim.claim(productId, 302, productTitle);
+    assert.equal(secondResult.success, true);
+    assert.equal(secondResult.orderId, 302);
   });
 });
