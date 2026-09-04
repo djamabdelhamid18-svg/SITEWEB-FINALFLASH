@@ -76,13 +76,13 @@ const globalLimiter = new MemoryRateLimiter("GlobalDDoSProtection", 60 * 1000, 1
 const orderCreationLimiter = new MemoryRateLimiter("OrderSpamProtection", 15 * 60 * 1000, 6);
 
 /**
- * Extracts client IP considering reverse proxies (Cloudflare, Nginx, etc.)
+ * Extracts client IP safely.
+ * IMPORTANT: X-Forwarded-For is trivially spoofable by attackers.
+ * We use req.socket.remoteAddress as the authoritative source.
+ * Only fall back to X-Forwarded-For if explicitly trusted (e.g. behind Cloudflare/Nginx),
+ * which requires trust proxy to be configured in Express — not done here, so we ignore the header.
  */
 function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") {
-    return forwarded.split(",")[0].trim();
-  }
   return req.socket.remoteAddress || "127.0.0.1";
 }
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { OFFICIAL_PRODUCT_CATALOG } from "./orders";
+import { OFFICIAL_PRODUCT_CATALOG } from "../business-logic";
 
 const router: IRouter = Router();
 

@@ -31,8 +31,9 @@ export const orderItemsTable = pgTable("order_items", {
 
 export const inventoryReservationsTable = pgTable("inventory_reservations", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").notNull().unique(),
-  orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }).unique(),
+  productId: integer("product_id").notNull().unique(), // UNIQUE: prevents selling same 1-of-1 twice
+  orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }), // NO unique — one order can reserve multiple 1-of-1 pieces
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(), // auto-release if unpaid
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

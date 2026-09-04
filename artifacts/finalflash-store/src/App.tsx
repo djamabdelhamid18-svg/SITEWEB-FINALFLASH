@@ -1853,6 +1853,7 @@ function CheckoutModal({
   const [orderNumber, setOrderNumber] = useState('');
   const [sent, setSent] = useState(false);
   const [orderError, setOrderError] = useState('');
+  const [isConflict, setIsConflict] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const createOrder = useCreateOrder();
@@ -1868,35 +1869,38 @@ function CheckoutModal({
         if (item.bundleOptions) {
           return `• طقم The Finalflash Set: جوغر (${item.bundleOptions.joggerColor} / ${item.bundleOptions.joggerSize}) + تيشيرت (${item.bundleOptions.teeModel} / ${item.bundleOptions.teeSize}) x${item.quantity} (${formatPrice(item.product.price * item.quantity)})`;
         }
-        return `• ${item.product.title} / ${item.size} / ${item.color?.name || 'Standard'} x${item.quantity} (${formatPrice(item.product.price * item.quantity)})`;
+        return `• ${item.product.title} (${item.color?.name || 'بدون لون'} / ${item.size}) x${item.quantity} (${formatPrice(item.product.price * item.quantity)})`;
       })
       .join('\n');
 
-    return (
-      `سلام Finalflash، أود تأكيد طلبي برقم ${ordNum}:\n\n` +
-      `📦 تفاصيل المشتريات:\n${itemLines}\n\n` +
-      `💵 الحساب:\n` +
-      `- ثمن القطع: ${formatPrice(subtotal)}\n` +
-      `- تكلفة التوصيل: ${formatPrice(deliveryFee)} (${delivery === 'home' ? 'لباب المنزل' : 'استلام من المكتب'})\n` +
-      `- المجموع الإجمالي: ${formatPrice(total)}\n\n` +
-      `📍 معلومات الزبون:\n` +
-      `- الاسم: ${name.trim()}\n` +
-      `- الهاتف: ${phoneCheck.normalized}\n` +
-      `- الولاية: ${wilaya}\n` +
-      `- البلدية / العنوان: ${commune.trim()}\n` +
-      `- طريقة الاستلام: ${delivery === 'home' ? 'توصيل للباب (À domicile)' : 'استلام من المكتب (Stop desk)'}\n\n` +
-      `أنتظر تأكيدكم لتجهيز الشحنة. شكراً!`
-    );
+    return `*طلب جديد (Ref: ${ordNum})*
+الاسم: ${name.trim()}
+رقم الهاتف: ${phoneCheck.normalized}
+الولاية: ${wilaya}
+البلدية والعنوان: ${commune.trim()}
+طريقة الاستلام: ${delivery === 'home' ? 'توصيل للباب' : 'استلام من مكتب الولاية'}
+
+*الطلبيات:*
+${itemLines}
+
+المجموع الفرعي: ${formatPrice(subtotal)}
+سعر التوصيل: ${formatPrice(deliveryFee)}
+*المبلغ الإجمالي للدفع:* ${formatPrice(total)}`;
   }
 
   async function handleSendOrder() {
-    if (!isFormValid || createOrder.isPending) return;
     setOrderError('');
+    setIsConflict(false);
+    let whatsappWindow: Window | null = null;
+    if (isMobile()) {
+      whatsappWindow = window.open('', '_blank');
+      if (whatsappWindow) {
+        whatsappWindow.document.write('جاري تحويلك إلى واتساب...');
+      }
+    }
 
     const localOrdNum = generateLocalOrderNumber();
-    const whatsappWindow = window.open('', '_blank');
-
-    const orderPayload = {
+    const orderPayload: CreateOrderPayload = {
       customerName: name.trim(),
       phone: phoneCheck.normalized,
       wilaya,
@@ -1951,7 +1955,11 @@ function CheckoutModal({
       if (whatsappWindow) {
         whatsappWindow.close();
       }
-      let apiMsg = 'تعذر الاتصال بقاعدة البيانات السحابية لحفظ الطلب آلياً (السيرفر غير متصل محلياً). يمكنك إرسال الطلب مباشرة الآن عبر زر "تأكيد يدوي فوري عبر واتساب".';
+      
+      const isUniqueConflict = err?.response?.data?.code === 'ITEM_ALREADY_RESERVED' || err?.response?.status === 409;
+      setIsConflict(isUniqueConflict);
+
+      let apiMsg = 'حدث خطأ تقني في الاتصال لحفظ الطلب. يرجى المحاولة مرة أخرى أو التأكيد يدوياً عبر واتساب.';
       if (err?.response?.data?.error) {
         apiMsg = err.response.data.error;
       }
@@ -2080,26 +2088,38 @@ function CheckoutModal({
                   <div className="flex items-start gap-2">
                     <AlertCircle size={16} className="mt-0.5 shrink-0" />
                     <div>
-                      <p className="font-bold">تنبيه في اتصال السيرفر:</p>
+                      <p className="font-bold">{isConflict ? 'القطعة مباعة (نفذت الكمية):' : 'تنبيه في اتصال السيرفر:'}</p>
                       <p className="mt-1 leading-5">{orderError}</p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-[#f7d6d1] pt-3">
-                    <button
-                      type="button"
-                      onClick={handleSendOrder}
-                      disabled={createOrder.isPending}
-                      className="rounded bg-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#7e3026]"
-                    >
-                      {createOrder.isPending ? 'جاري المحاولة...' : 'إعادة محاولة الحفظ السحابي'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDirectWhatsAppFallback}
-                      className="rounded border border-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-[#9b3f34] hover:bg-[#9b3f34] hover:text-white"
-                    >
-                      تأكيد يدوي فوري عبر واتساب
-                    </button>
+                    {isConflict ? (
+                      <button
+                        type="button"
+                        onClick={onBack}
+                        className="rounded bg-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#7e3026]"
+                      >
+                        العودة للسلة لتعديل الطلب
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleSendOrder}
+                          disabled={createOrder.isPending}
+                          className="rounded bg-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#7e3026]"
+                        >
+                          {createOrder.isPending ? 'جاري المحاولة...' : 'إعادة محاولة الحفظ السحابي'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDirectWhatsAppFallback}
+                          className="rounded border border-[#9b3f34] px-3.5 py-1.5 text-xs font-bold text-[#9b3f34] hover:bg-[#9b3f34] hover:text-white"
+                        >
+                          تأكيد يدوي فوري عبر واتساب
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

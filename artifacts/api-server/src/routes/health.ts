@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/health", async (_req, res) => {
+router.get("/healthz", async (_req, res) => {
   let dbStatus = "unconnected";
   let dbLatencyMs = -1;
 

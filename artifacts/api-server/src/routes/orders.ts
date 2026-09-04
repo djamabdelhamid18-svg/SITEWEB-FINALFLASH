@@ -1,109 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db, inventoryReservationsTable, orderAuditLogsTable, orderItemsTable, ordersTable } from "@workspace/db";
 import { CreateOrderBody, CreateOrderResponse } from "@workspace/api-zod";
+import {
+  OFFICIAL_PRODUCT_CATALOG,
+  calculateAuthoritativeDeliveryFee,
+  validateOrderItem,
+  VALID_ORDER_STATUSES,
+} from "../business-logic";
 
 const router: IRouter = Router();
-
-// Official Authoritative Product Catalog (Server Source of Truth)
-export const OFFICIAL_PRODUCT_CATALOG: Record<
-  number,
-  {
-    price: number;
-    isOneOfOne: boolean;
-    validSizes: string[];
-    validColors: string[];
-  }
-> = {
-  1: {
-    price: 2900,
-    isOneOfOne: false,
-    validSizes: ["M", "L", "XL"],
-    validColors: ["Black", "Grey", "أسود", "رمادي"],
-  }, // Baggy Jogger
-  2: {
-    price: 2000,
-    isOneOfOne: true,
-    validSizes: ["S"],
-    validColors: ["Onyx Black", "أسود"],
-  }, // Thrifted Gymshark T-Shirt (1 of 1)
-  3: {
-    price: 2400,
-    isOneOfOne: true,
-    validSizes: ["M"],
-    validColors: ["Navy Blue", "أزرق داكن"],
-  }, // Vintage Hard Rock Cafe Tee (1 of 1)
-  4: {
-    price: 4300,
-    isOneOfOne: false,
-    validSizes: ["Set Customizer", "M", "L", "XL"],
-    validColors: ["Black Set", "Grey Set", "أسود", "رمادي"],
-  }, // The Finalflash Set (Bundle)
-  5: {
-    price: 4500,
-    isOneOfOne: true,
-    validSizes: ["W32-34"],
-    validColors: ["Duck Brown", "بني"],
-  }, // Carhartt Vintage Baggy Pants (1 of 1)
-  6: {
-    price: 5200,
-    isOneOfOne: true,
-    validSizes: ["EU 42", "42"],
-    validColors: ["Optical White", "أبيض"],
-  }, // Converse All Star High 1990s (1 of 1)
-};
-
-// Official Authoritative Delivery Fee Matrix for 58 Algerian Wilayas
-export function calculateAuthoritativeDeliveryFee(wilaya: string, method: "home" | "desk"): number {
-  if (!wilaya) return method === "home" ? 600 : 400;
-
-  const alger = ["16 - Alger", "16 - الجزائر العاصمة", "16"];
-  const centerNorth = [
-    "09 - Blida", "09 - البليدة", "09",
-    "35 - Boumerdès", "35 - بومرداس", "35",
-    "42 - Tipaza", "42 - تيبازة", "42",
-    "10 - Bouira", "10 - البويرة", "10",
-    "15 - Tizi Ouzou", "15 - تيزي وزو", "15",
-    "26 - Médéa", "26 - المدية", "26",
-    "31 - Oran", "31 - وهران", "31",
-    "25 - Constantine", "25 - قسنطينة", "25",
-    "23 - Annaba", "23 - عنابة", "23",
-    "06 - Béjaïa", "06 - بجاية", "06",
-    "18 - Jijel", "18 - جيجل", "18",
-    "13 - Tlemcen", "13 - تلمسان", "13",
-    "27 - Mostaganem", "27 - مستغانم", "27"
-  ];
-  const southBig = [
-    "01 - Adrar", "01 - أدرار", "01",
-    "08 - Béchar", "08 - بشار", "08",
-    "11 - Tamanrasset", "11 - تمنراست", "11",
-    "30 - Ouargla", "30 - ورقلة", "30",
-    "33 - Illizi", "33 - إليزي", "33",
-    "37 - Tindouf", "37 - تندوف", "37",
-    "47 - Ghardaïa", "47 - غرداية", "47",
-    "49 - Timimoun", "49 - تيميمون", "49",
-    "50 - Bordj Badji Mokhtar", "50 - برج باجي مختار", "50",
-    "52 - Béni Abbès", "52 - بني عباس", "52",
-    "53 - In Salah", "53 - عين صالح", "53",
-    "54 - In Guezzam", "54 - عين قزام", "54",
-    "56 - Djanet", "56 - جانت", "56",
-    "58 - El Meniaa", "58 - المنيعة", "58"
-  ];
-
-  if (alger.some((w) => wilaya.includes(w))) {
-    return method === "home" ? 400 : 250;
-  }
-  if (centerNorth.some((w) => wilaya.includes(w))) {
-    return method === "home" ? 600 : 400;
-  }
-  if (southBig.some((w) => wilaya.includes(w))) {
-    return method === "home" ? 950 : 650;
-  }
-  return method === "home" ? 700 : 450;
-}
-
-export const VALID_ORDER_STATUSES = ["new", "confirmed", "shipped", "delivered", "cancelled"] as const;
 
 router.post("/orders", async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
@@ -121,7 +28,7 @@ router.post("/orders", async (req, res): Promise<void> => {
     return;
   }
 
-  // 1. Server-Authoritative Price & Attribute Verification
+  // 1. Server-Authoritative Price, Attribute & Quantity Verification
   for (const item of input.items) {
     const catalogItem = OFFICIAL_PRODUCT_CATALOG[item.productId];
     if (!catalogItem) {
@@ -136,6 +43,33 @@ router.post("/orders", async (req, res): Promise<void> => {
       );
       res.status(400).json({
         error: `Price mismatch for "${item.productTitle}". The official catalog price is ${catalogItem.price} DA.`,
+      });
+      return;
+    }
+    // Enforce quantity=1 for 1-of-1 pieces — cannot buy 2 of a unique item
+    if (catalogItem.isOneOfOne && item.quantity !== 1) {
+      req.log.warn({ productId: item.productId, quantity: item.quantity }, "Rejected: quantity > 1 for 1-of-1 item");
+      res.status(400).json({
+        error: `"${item.productTitle}" is a unique 1-of-1 piece. Quantity must be 1.`,
+        code: "INVALID_QUANTITY_FOR_UNIQUE_ITEM",
+      });
+      return;
+    }
+    // Validate size is in the allowed list for this product
+    if (!catalogItem.validSizes.includes(item.size)) {
+      req.log.warn({ productId: item.productId, size: item.size }, "Rejected order with invalid size");
+      res.status(400).json({
+        error: `Invalid size "${item.size}" for product "${item.productTitle}". Allowed: ${catalogItem.validSizes.join(", ")}.`,
+        code: "INVALID_SIZE",
+      });
+      return;
+    }
+    // Validate color if provided
+    if (item.color && !catalogItem.validColors.includes(item.color)) {
+      req.log.warn({ productId: item.productId, color: item.color }, "Rejected order with invalid color");
+      res.status(400).json({
+        error: `Invalid color "${item.color}" for product "${item.productTitle}". Allowed: ${catalogItem.validColors.join(", ")}.`,
+        code: "INVALID_COLOR",
       });
       return;
     }
@@ -168,21 +102,20 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const orderNumber = `FF-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-  // 2. Atomic 1-of-1 Inventory Reservation with Database Unique Constraint
+  // 2. Atomic 1-of-1 Inventory Reservation with Database Unique Constraint + 60-min TTL
   try {
     const order = await db.transaction(async (tx) => {
       const requestedOneOfOnes = input.items.filter(
         (it) => OFFICIAL_PRODUCT_CATALOG[it.productId]?.isOneOfOne
       );
 
-      // Explicit check for existing active reservations before insert
+      // Check for existing *non-expired* active reservations via raw SQL
+      // This is the correct approach: checks expires_at > NOW() atomically in the transaction
       for (const item of requestedOneOfOnes) {
-        const existing = await tx
-          .select({ id: inventoryReservationsTable.id })
-          .from(inventoryReservationsTable)
-          .where(eq(inventoryReservationsTable.productId, item.productId));
-
-        if (existing.length > 0) {
+        const activeReservation = await tx.execute(
+          sql`SELECT id FROM inventory_reservations WHERE product_id = ${item.productId} AND expires_at > NOW() LIMIT 1`
+        );
+        if ((activeReservation as any).rows?.length > 0) {
           throw new Error(`ITEM_ALREADY_RESERVED:${item.productTitle}`);
         }
       }
@@ -210,12 +143,14 @@ router.post("/orders", async (req, res): Promise<void> => {
         unitPrice: OFFICIAL_PRODUCT_CATALOG[item.productId].price,
       })));
 
-      // Atomically insert reservations into the dedicated table with UNIQUE constraint
+      // Insert reservations with 60-minute TTL expiry
+      const reservationExpiry = new Date(Date.now() + 60 * 60 * 1000);
       for (const item of requestedOneOfOnes) {
-        await tx.insert(inventoryReservationsTable).values({
-          productId: item.productId,
-          orderId: created.id,
-        });
+        await tx.execute(
+          sql`INSERT INTO inventory_reservations (product_id, order_id, expires_at)
+              VALUES (${item.productId}, ${created.id}, ${reservationExpiry})
+              ON CONFLICT (product_id) DO NOTHING`
+        );
       }
 
       // Record audit log entry for order creation
